@@ -1,6 +1,5 @@
 use super::{
-    ignored_entry, is_sensitive_path, relative_display, WorkspaceEntry,
-    MAX_WORKSPACE_ENTRIES,
+    ignored_entry, is_sensitive_path, relative_display, WorkspaceEntry, MAX_WORKSPACE_ENTRIES,
 };
 use std::{
     collections::HashMap,
