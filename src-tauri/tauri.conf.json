@@ -49,7 +49,10 @@
         "language": "en-US"
       },
       "allowDowngrades": false
-    }
+    },
+    "icon": [
+      "icons/icon.ico"
+    ]
   },
   "plugins": {
     "updater": {

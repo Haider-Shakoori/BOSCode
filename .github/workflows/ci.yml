@@ -53,5 +53,5 @@ jobs:
       - name: Test Tauri backend
         run: cargo test --manifest-path src-tauri/Cargo.toml
 
-      - name: Smoke-build Windows NSIS installer
-        run: npm run tauri build -- --bundles nsis
+      - name: Smoke-build Windows installers
+        run: npm run tauri build
