@@ -163,6 +163,7 @@ export default function ChatWorkspace({
       streaming: true,
     };
     let workspaceContext = "";
+    let terminalContext = "";
     if (workspace) {
       try {
         workspaceContext = await invoke<string>("build_workspace_context", {
@@ -172,6 +173,13 @@ export default function ChatWorkspace({
       } catch (caught) {
         console.warn("Workspace context unavailable", caught);
       }
+
+      try {
+        terminalContext =
+          (await invoke<string | null>("latest_command_context")) ?? "";
+      } catch (caught) {
+        console.warn("Terminal context unavailable", caught);
+      }
     }
 
     const historyMessages = [...messages, userMessage].map(({ role, content }) => ({
@@ -179,15 +187,20 @@ export default function ChatWorkspace({
       content,
     }));
 
-    const requestMessages = workspaceContext
+    const agentContext = [workspaceContext, terminalContext]
+      .filter(Boolean)
+      .join("\n\n");
+
+    const requestMessages = agentContext
       ? [
           {
             role: "system",
             content:
               "You are BOSCode, a coding agent working inside the user's selected repository. " +
-              "Use the supplied read-only workspace context as evidence. Do not invent file contents or claim edits were applied. " +
+              "Use the supplied workspace and approved-command context as evidence. Do not invent file contents, command results, or claim edits/commands were applied unless the context proves it. " +
+              "If the latest approved command failed, analyze the failure and recommend the smallest concrete fix and the next command to validate it. " +
               "When proposing changes, name the exact files and explain what should change.\n\n" +
-              workspaceContext,
+              agentContext,
           },
           ...historyMessages,
         ]
@@ -322,7 +335,7 @@ export default function ChatWorkspace({
           <span>▱ {workspace.name}</span>
           <span>⑂ {workspace.branch ?? "no branch"}</span>
           {activeFile && <span className="active-context-file">＋ {activeFile.path}</span>}
-          <small>read-only context</small>
+          <small>repo + approved command context</small>
         </div>
       )}
 
