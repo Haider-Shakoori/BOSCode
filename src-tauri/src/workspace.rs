@@ -275,7 +275,7 @@ fn refresh_workspace_index(
         let index_state = Arc::clone(&state.index);
         let refreshing = Arc::clone(&state.refreshing);
 
-        thread::spawn(move || {
+        let _ = thread::spawn(move || {
             let previous = index_state.lock().ok().and_then(|guard| guard.clone());
             let next = WorkspaceIndex::build(&root_for_thread, previous.as_ref());
 
