@@ -697,7 +697,7 @@ mod tests {
 
     #[test]
     fn schema_enables_cascading_session_messages() {
-        let mut connection = Connection::open_in_memory().unwrap();
+        let connection = Connection::open_in_memory().unwrap();
         initialize_schema(&connection).unwrap();
         connection
             .execute_batch("PRAGMA foreign_keys = ON;")
