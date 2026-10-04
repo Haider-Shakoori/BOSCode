@@ -509,7 +509,6 @@ async fn test_provider_connection(
     api_key: Option<String>,
 ) -> Result<ProviderTestResult, String> {
     validate_provider_id(&provider_id)?;
-    let parsed_url = chat_endpoint(&base_url)?;
     let model = model.trim();
 
     if model.is_empty() {
@@ -527,6 +526,24 @@ async fn test_provider_connection(
         None => read_provider_secret(&provider_id)?,
     };
 
+    if provider_id == "big-pickle" {
+        let secret = secret.ok_or_else(|| "OpenCode Zen API key is required.".to_string())?;
+        let model = normalize_opencode_model(model);
+        let started = Instant::now();
+
+        run_opencode_collect(&model, "Reply only with OK.", &secret).await?;
+
+        return Ok(ProviderTestResult {
+            provider: provider_id,
+            model,
+            status: 200,
+            latency_ms: started.elapsed().as_millis() as u64,
+            message: "OpenCode CLI bridge verified.".to_string(),
+            transport: "opencode-cli".to_string(),
+        });
+    }
+
+    let parsed_url = chat_endpoint(&base_url)?;
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(25))
         .build()
@@ -573,6 +590,7 @@ async fn test_provider_connection(
         status: status_code,
         latency_ms,
         message: "Connection verified.".to_string(),
+        transport: "http".to_string(),
     })
 }
 
@@ -590,6 +608,14 @@ async fn stream_chat(
     let model = model.trim();
     if model.is_empty() {
         return Err("Model ID is required.".to_string());
+    }
+
+    if provider_id == "big-pickle" {
+        let secret = read_provider_secret(&provider_id)?
+            .ok_or_else(|| "OpenCode Zen API key is required.".to_string())?;
+        let model = normalize_opencode_model(model);
+        let prompt = opencode_prompt(&messages);
+        return stream_opencode_response(&model, &prompt, &secret, &on_event).await;
     }
 
     let endpoint = chat_endpoint(&base_url)?;
