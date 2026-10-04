@@ -336,9 +336,19 @@ fn ahead_behind(root: &Path) -> (usize, usize) {
 }
 
 fn parse_status(root: &Path) -> Vec<GitFileStatus> {
-    let Ok(output) = git_output(root, &["status", "--porcelain=v1", "--untracked-files=normal"]) else {
+    let Ok(output) = StdCommand::new("git")
+        .args(["status", "--porcelain=v1", "--untracked-files=normal"])
+        .current_dir(root)
+        .output()
+    else {
         return Vec::new();
     };
+
+    if !output.status.success() {
+        return Vec::new();
+    }
+
+    let output = String::from_utf8_lossy(&output.stdout);
 
     output
         .lines()
