@@ -369,10 +369,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            let data_dir = app
-                .path()
-                .app_data_dir()
-                .map_err(|error| format!("Unable to resolve BOSCode data directory: {error}"))?;
+            let data_dir = app.path().app_data_dir()?;
             app.state::<memory::MemoryState>()
                 .initialize(&data_dir)
                 .map_err(std::io::Error::other)?;
