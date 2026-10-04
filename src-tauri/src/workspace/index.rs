@@ -1,5 +1,5 @@
 use super::{
-    ignored_entry, is_sensitive_path, language_for_path, relative_display, WorkspaceEntry,
+    ignored_entry, is_sensitive_path, relative_display, WorkspaceEntry,
     MAX_WORKSPACE_ENTRIES,
 };
 use std::{
@@ -18,7 +18,6 @@ pub(super) struct IndexedTextFile {
     pub path: String,
     pub size: u64,
     modified: u64,
-    pub language: String,
     pub content: String,
 }
 
@@ -161,7 +160,6 @@ impl WorkspaceIndex {
                 path,
                 size,
                 modified,
-                language: language_for_path(entry.path()),
                 content,
             });
         }
