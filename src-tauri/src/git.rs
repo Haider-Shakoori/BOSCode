@@ -1,4 +1,4 @@
-use crate::workspace::{workspace_root, WorkspaceState};
+use crate::workspace::{is_sensitive_path, workspace_root, WorkspaceState};
 use serde::Serialize;
 use std::{
     collections::HashMap,
@@ -227,7 +227,7 @@ fn validate_relative_path(path: &str) -> Result<String, String> {
     Ok(value.replace('\\', "/"))
 }
 
-fn validate_paths(paths: Vec<String>) -> Result<Vec<String>, String> {
+fn validate_paths(paths: Vec<String>, block_sensitive: bool) -> Result<Vec<String>, String> {
     if paths.is_empty() {
         return Err("Select at least one file.".to_string());
     }
@@ -236,7 +236,31 @@ fn validate_paths(paths: Vec<String>) -> Result<Vec<String>, String> {
         return Err("Too many files selected for one Git action.".to_string());
     }
 
-    paths.into_iter().map(|path| validate_relative_path(&path)).collect()
+    paths
+        .into_iter()
+        .map(|path| {
+            let normalized = validate_relative_path(&path)?;
+            if block_sensitive && is_sensitive_path(Path::new(&normalized)) {
+                return Err(format!(
+                    "BOSCode will not stage sensitive credential material: {normalized}"
+                ));
+            }
+            Ok(normalized)
+        })
+        .collect()
+}
+
+fn staged_sensitive_paths(root: &Path) -> Vec<String> {
+    let Ok(output) = git_output(root, &["diff", "--cached", "--name-only", "--diff-filter=ACMR"]) else {
+        return Vec::new();
+    };
+
+    output
+        .lines()
+        .map(str::trim)
+        .filter(|path| !path.is_empty() && is_sensitive_path(Path::new(path)))
+        .map(ToOwned::to_owned)
+        .collect()
 }
 
 fn validate_commit_message(message: String) -> Result<String, String> {
@@ -601,7 +625,7 @@ pub fn propose_git_stage(
 ) -> Result<GitActionProposal, String> {
     let root = workspace_root(&workspace)?;
     ensure_git_repository(&root)?;
-    store_proposal(&state, GitAction::Stage { paths: validate_paths(paths)? })
+    store_proposal(&state, GitAction::Stage { paths: validate_paths(paths, true)? })
 }
 
 #[tauri::command]
@@ -612,7 +636,7 @@ pub fn propose_git_unstage(
 ) -> Result<GitActionProposal, String> {
     let root = workspace_root(&workspace)?;
     ensure_git_repository(&root)?;
-    store_proposal(&state, GitAction::Unstage { paths: validate_paths(paths)? })
+    store_proposal(&state, GitAction::Unstage { paths: validate_paths(paths, false)? })
 }
 
 #[tauri::command]
@@ -623,6 +647,14 @@ pub fn propose_git_commit(
 ) -> Result<GitActionProposal, String> {
     let root = workspace_root(&workspace)?;
     ensure_git_repository(&root)?;
+    let sensitive = staged_sensitive_paths(&root);
+    if !sensitive.is_empty() {
+        return Err(format!(
+            "Commit blocked because sensitive files are staged: {}",
+            sensitive.join(", ")
+        ));
+    }
+
     store_proposal(
         &state,
         GitAction::Commit {
