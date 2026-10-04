@@ -1871,3 +1871,356 @@ body {
   line-height: 1.55;
   white-space: pre;
 }
+
+
+.real-terminal {
+  display: grid;
+  grid-template-rows: 34px minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.terminal-empty {
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+
+.terminal-empty > div {
+  display: grid;
+  gap: 4px;
+  color: #74839a;
+  text-align: center;
+  font-size: 9px;
+}
+
+.terminal-empty strong {
+  color: #c5d2e5;
+  font-size: 11px;
+}
+
+.terminal-tabs {
+  align-items: center;
+}
+
+.terminal-workspace {
+  margin-left: 8px;
+  color: #65758d;
+  font-size: 8px;
+}
+
+.terminal-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.terminal-toolbar-actions button {
+  height: 25px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0 8px;
+  color: #8494ab;
+  background: rgba(255,255,255,.025);
+  cursor: pointer;
+  font-size: 8.5px;
+}
+
+.terminal-toolbar-actions .terminal-stop {
+  border-color: rgba(255,100,117,.18);
+  color: #ff8694;
+  background: rgba(255,100,117,.05);
+}
+
+.terminal-runtime {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 210px;
+}
+
+.terminal-main {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0,1fr) auto auto;
+  border-right: 1px solid var(--line);
+}
+
+.terminal-output {
+  min-height: 0;
+  overflow: auto;
+  padding: 10px 13px;
+  background: #070b12;
+  scrollbar-color: rgba(114,135,170,.27) transparent;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.terminal-placeholder {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 4px;
+  color: #58677d;
+  text-align: center;
+  font-family: Inter, ui-sans-serif, sans-serif;
+}
+
+.terminal-placeholder strong {
+  color: #8090a8;
+  font-size: 10px;
+}
+
+.terminal-placeholder span {
+  max-width: 420px;
+  font-size: 8.5px;
+  line-height: 1.5;
+}
+
+.terminal-line {
+  min-height: 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.terminal-line.command {
+  margin: 3px 0 5px;
+  color: #dce7f8;
+  font-weight: 650;
+}
+
+.terminal-line.stdout {
+  color: #aebbd0;
+}
+
+.terminal-line.stderr {
+  color: #ff8997;
+}
+
+.terminal-line.system {
+  margin: 3px 0;
+  color: #6da9ef;
+}
+
+.terminal-command-box {
+  min-height: 39px;
+  display: grid;
+  grid-template-columns: 18px minmax(0,1fr) auto;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 7px;
+  border-top: 1px solid var(--line);
+  background: rgba(12,18,29,.92);
+}
+
+.terminal-prompt {
+  color: #4698fa;
+  text-align: center;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-weight: 700;
+}
+
+.terminal-command-box input {
+  min-width: 0;
+  height: 28px;
+  border: 0;
+  outline: 0;
+  color: #d5e1f2;
+  background: transparent;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 9px;
+}
+
+.terminal-command-box input::placeholder {
+  color: #536177;
+}
+
+.terminal-command-box button {
+  height: 27px;
+  border: 1px solid rgba(49,137,255,.23);
+  border-radius: 6px;
+  padding: 0 10px;
+  color: #d7e8ff;
+  background: rgba(34,105,204,.12);
+  cursor: pointer;
+  font-size: 8.5px;
+}
+
+.terminal-command-box button:disabled {
+  opacity: .4;
+  cursor: default;
+}
+
+.terminal-error {
+  padding: 6px 9px;
+  border-top: 1px solid rgba(255,100,117,.14);
+  color: #ff8d9b;
+  background: rgba(255,100,117,.045);
+  font-size: 8px;
+}
+
+.terminal-side {
+  min-height: 0;
+  overflow: auto;
+  background: rgba(10,15,25,.96);
+  scrollbar-color: rgba(114,135,170,.22) transparent;
+}
+
+.terminal-side-section {
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.terminal-side-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.terminal-side-title strong {
+  color: #a9b7cb;
+  font-size: 8.5px;
+  font-weight: 650;
+}
+
+.terminal-side-title span {
+  min-width: 17px;
+  height: 17px;
+  display: grid;
+  place-items: center;
+  border-radius: 5px;
+  color: #6e7e96;
+  background: rgba(255,255,255,.04);
+  font-size: 7.5px;
+}
+
+.terminal-proposals,
+.terminal-recommendations {
+  display: grid;
+  gap: 5px;
+}
+
+.terminal-proposals > p,
+.terminal-recommendations > p,
+.terminal-last-run > p {
+  margin: 6px 0;
+  color: #5c6b80;
+  font-size: 8px;
+}
+
+.terminal-proposals article {
+  display: grid;
+  gap: 4px;
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(255,255,255,.018);
+}
+
+.terminal-proposals code,
+.terminal-recommendations code,
+.terminal-last-run code {
+  overflow: hidden;
+  color: #bdc9d9;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 7.8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-proposals article > span {
+  color: #65758d;
+  font-size: 7.5px;
+  line-height: 1.35;
+}
+
+.terminal-proposals article > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.terminal-proposals button {
+  height: 23px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 0 7px;
+  color: #8797ad;
+  background: rgba(255,255,255,.025);
+  cursor: pointer;
+  font-size: 7.5px;
+}
+
+.terminal-proposals button.primary {
+  border-color: transparent;
+  color: white;
+  background: linear-gradient(145deg,#1683ff,#276bff);
+}
+
+.terminal-proposals button:disabled,
+.terminal-recommendations button:disabled {
+  opacity: .4;
+  cursor: default;
+}
+
+.terminal-recommendations button {
+  min-height: 38px;
+  display: grid;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 6px 7px;
+  color: #9eacc0;
+  background: rgba(255,255,255,.018);
+  text-align: left;
+  cursor: pointer;
+}
+
+.terminal-recommendations button:hover {
+  border-color: rgba(48,139,255,.22);
+  background: rgba(37,94,176,.07);
+}
+
+.terminal-recommendations button span {
+  font-size: 8px;
+  font-weight: 650;
+}
+
+.terminal-recommendations button code {
+  color: #687991;
+  font-size: 7.3px;
+}
+
+.terminal-last-run > div {
+  display: grid;
+  gap: 4px;
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(255,255,255,.018);
+}
+
+.terminal-last-run > div strong {
+  font-size: 8px;
+}
+
+.terminal-last-run > div > span {
+  color: #65758d;
+  font-size: 7.5px;
+}
+
+.terminal-last-run .run-success strong {
+  color: #58dda0;
+}
+
+.terminal-last-run .run-failure strong {
+  color: #ff8391;
+}
+
+@media (max-width: 1180px) {
+  .terminal-runtime {
+    grid-template-columns: minmax(0, 1fr) 175px;
+  }
+}
