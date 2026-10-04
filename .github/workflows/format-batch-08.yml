@@ -1,0 +1,36 @@
+name: BOSCode Batch 8 Rust Format
+
+on:
+  push:
+    branches:
+      - "feat/batch-08-production-release"
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/batch-08-production-release
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Format Rust backend
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml
+      - name: Commit formatting
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if (git status --porcelain) {
+            git add src-tauri/src
+            git commit -m "style: format Rust backend"
+            git push origin HEAD:feat/batch-08-production-release
+          } else {
+            Write-Host "Rust formatting already clean."
+          }
