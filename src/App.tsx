@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import ProviderSettings from "./ProviderSettings";
 import ChatWorkspace from "./ChatWorkspace";
+import ChangesPanel from "./ChangesPanel";
 import WorkspacePanel, { type WorkspaceEntry, type WorkspaceFile, type WorkspaceSummary } from "./WorkspacePanel";
 
 type NavItem = { icon: string; label: string; badge?: string };
@@ -42,6 +43,7 @@ export default function App() {
   const [workspace, setWorkspace] = useState<WorkspaceSummary | null>(null);
   const [workspaceEntries, setWorkspaceEntries] = useState<WorkspaceEntry[]>([]);
   const [activeFile, setActiveFile] = useState<WorkspaceFile | null>(null);
+  const [changesRefreshToken, setChangesRefreshToken] = useState(0);
 
 
   useEffect(() => {
@@ -75,6 +77,35 @@ export default function App() {
     setWorkspaceEntries(entries);
     setActiveFile(null);
     setActiveNav("Explorer");
+  };
+
+
+  const refreshWorkspace = async () => {
+    if (!workspace) return;
+
+    const [summary, entries] = await Promise.all([
+      invoke<WorkspaceSummary>("get_workspace"),
+      invoke<WorkspaceEntry[]>("list_workspace"),
+    ]);
+
+    setWorkspace(summary);
+    setWorkspaceEntries(entries);
+
+    if (activeFile) {
+      try {
+        const refreshed = await invoke<WorkspaceFile>("read_workspace_file", {
+          path: activeFile.path,
+        });
+        setActiveFile(refreshed);
+      } catch {
+        setActiveFile(null);
+      }
+    }
+  };
+
+  const handleChangeProposed = () => {
+    setChangesRefreshToken((value) => value + 1);
+    setActiveNav("Source Control");
   };
 
 
@@ -194,15 +225,25 @@ export default function App() {
           </section>
         </section>
 
-        <WorkspacePanel
-          workspace={workspace}
-          entries={workspaceEntries}
-          activeFile={activeFile}
-          onWorkspaceChange={handleWorkspaceChange}
-          onFileOpen={setActiveFile}
-          onNotice={setNotice}
-          mode={activeNav === "Search" ? "search" : activeNav === "Explorer" ? "files" : null}
-        />
+        {activeNav === "Source Control" ? (
+          <ChangesPanel
+            workspace={workspace}
+            refreshToken={changesRefreshToken}
+            onNotice={setNotice}
+            onWorkspaceRefresh={refreshWorkspace}
+          />
+        ) : (
+          <WorkspacePanel
+            workspace={workspace}
+            entries={workspaceEntries}
+            activeFile={activeFile}
+            onWorkspaceChange={handleWorkspaceChange}
+            onFileOpen={setActiveFile}
+            onNotice={setNotice}
+            onChangeProposed={handleChangeProposed}
+            mode={activeNav === "Search" ? "search" : activeNav === "Explorer" ? "files" : null}
+          />
+        )}
       </section>
 
       {settingsOpen && (
