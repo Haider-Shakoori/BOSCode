@@ -66,6 +66,12 @@ export default function MemoryPanel({ workspace, onNotice }: MemoryPanelProps) {
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [memoryEnabled, setMemoryEnabled] = useState(
+    () => localStorage.getItem("boscode.memory.enabled") !== "false",
+  );
+  const [autoCapture, setAutoCapture] = useState(
+    () => localStorage.getItem("boscode.memory.autoCapture") !== "false",
+  );
 
   const visible = useMemo(() => items, [items]);
 
@@ -180,6 +186,41 @@ export default function MemoryPanel({ workspace, onNotice }: MemoryPanelProps) {
         </div>
         <span className="memory-total">{stats.enabled}/{stats.total} active</span>
       </header>
+
+      <div className="memory-master-controls">
+        <label>
+          <input
+            type="checkbox"
+            checked={memoryEnabled}
+            onChange={(event) => {
+              const enabled = event.target.checked;
+              setMemoryEnabled(enabled);
+              localStorage.setItem("boscode.memory.enabled", String(enabled));
+              onNotice(enabled ? "BOSCode memory enabled" : "BOSCode memory disabled");
+            }}
+          />
+          <span>
+            <strong>Use memory</strong>
+            <small>Recall relevant memories in future chats.</small>
+          </span>
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={autoCapture}
+            onChange={(event) => {
+              const enabled = event.target.checked;
+              setAutoCapture(enabled);
+              localStorage.setItem("boscode.memory.autoCapture", String(enabled));
+              onNotice(enabled ? "Auto-remember enabled" : "Auto-remember disabled");
+            }}
+          />
+          <span>
+            <strong>Auto-remember</strong>
+            <small>Capture strong memory-intent phrases automatically.</small>
+          </span>
+        </label>
+      </div>
 
       <div className="memory-stats">
         <div><strong>{stats.global}</strong><span>Global</span></div>
