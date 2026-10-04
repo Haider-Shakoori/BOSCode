@@ -201,6 +201,7 @@ export default function App() {
           onWorkspaceChange={handleWorkspaceChange}
           onFileOpen={setActiveFile}
           onNotice={setNotice}
+          mode={activeNav === "Search" ? "search" : activeNav === "Explorer" ? "files" : null}
         />
       </section>
 
