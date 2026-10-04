@@ -29,6 +29,13 @@ type ProviderTestResult = {
   status: number;
   latency_ms: number;
   message: string;
+  transport?: string;
+};
+
+type OpenCodeStatus = {
+  installed: boolean;
+  path: string | null;
+  version: string | null;
 };
 
 const providers: ProviderDefinition[] = [
@@ -36,10 +43,10 @@ const providers: ProviderDefinition[] = [
     id: "big-pickle",
     name: "Big Pickle",
     badge: "BP",
-    baseUrl: "https://opencode.ai/zen/v1",
-    model: "big-pickle",
+    baseUrl: "",
+    model: "opencode/big-pickle",
     keyRequired: true,
-    note: "Default BOSCode provider through OpenCode Zen. Free-period prompts may be used by the provider to improve the model.",
+    note: "Runs through the local OpenCode CLI so Big Pickle free-tier requests stay inside the official OpenCode runtime.",
   },
   {
     id: "openai",
@@ -104,6 +111,7 @@ export default function ProviderSettings({
   const [busy, setBusy] = useState<"save" | "test" | "delete" | null>(null);
   const [result, setResult] = useState<ProviderTestResult | null>(null);
   const [error, setError] = useState("");
+  const [openCodeStatus, setOpenCodeStatus] = useState<OpenCodeStatus | null>(null);
 
   useEffect(() => {
     const fallback = { baseUrl: selected.baseUrl, model: selected.model };
@@ -127,7 +135,21 @@ export default function ProviderSettings({
     invoke<boolean>("provider_secret_exists", { providerId: selected.id })
       .then(setHasStoredKey)
       .catch(() => setHasStoredKey(false));
+
+    if (selected.id === "big-pickle") {
+      invoke<OpenCodeStatus>("opencode_status")
+        .then(setOpenCodeStatus)
+        .catch(() =>
+          setOpenCodeStatus({ installed: false, path: null, version: null }),
+        );
+    } else {
+      setOpenCodeStatus(null);
+    }
   }, [selected]);
+
+  const requiresBaseUrl = selected.id !== "big-pickle";
+  const configReady =
+    Boolean(model.trim()) && (!requiresBaseUrl || Boolean(baseUrl.trim()));
 
   const saveSettings = async () => {
     setBusy("save");
@@ -258,15 +280,27 @@ export default function ProviderSettings({
                   </div>
                 </div>
 
-                <label>
-                  <span>API Base URL</span>
-                  <input
-                    value={baseUrl}
-                    onChange={(event) => setBaseUrl(event.target.value)}
-                    placeholder="https://provider.example/v1"
-                    spellCheck={false}
-                  />
-                </label>
+                {selected.id === "big-pickle" ? (
+                  <div className="provider-security-note">
+                    <span>◇</span>
+                    <p>
+                      <strong>OpenCode CLI bridge</strong><br />
+                      {openCodeStatus?.installed
+                        ? `Detected ${openCodeStatus.version ?? "OpenCode"} locally. BOSCode will invoke OpenCode directly instead of calling the Zen HTTP endpoint.`
+                        : "OpenCode CLI was not detected. Install OpenCode first, then reopen BOSCode or test again."}
+                    </p>
+                  </div>
+                ) : (
+                  <label>
+                    <span>API Base URL</span>
+                    <input
+                      value={baseUrl}
+                      onChange={(event) => setBaseUrl(event.target.value)}
+                      placeholder="https://provider.example/v1"
+                      spellCheck={false}
+                    />
+                  </label>
+                )}
 
                 <label>
                   <span>Model</span>
@@ -316,7 +350,9 @@ export default function ProviderSettings({
                   <div className="connection-result success">
                     <strong>Connection verified</strong>
                     <span>
-                      HTTP {result.status} · {result.model} · {result.latency_ms} ms
+                      {result.transport === "opencode-cli"
+                        ? `OpenCode CLI · ${result.model} · ${result.latency_ms} ms`
+                        : `HTTP ${result.status} · ${result.model} · ${result.latency_ms} ms`}
                     </span>
                   </div>
                 )}
@@ -342,14 +378,14 @@ export default function ProviderSettings({
                   <button
                     className="secondary-button"
                     onClick={testConnection}
-                    disabled={busy !== null || !baseUrl.trim() || !model.trim()}
+                    disabled={busy !== null || !configReady}
                   >
                     {busy === "test" ? "Testing…" : "Test Connection"}
                   </button>
                   <button
                     className="primary-button"
                     onClick={saveSettings}
-                    disabled={busy !== null || !baseUrl.trim() || !model.trim()}
+                    disabled={busy !== null || !configReady}
                   >
                     {busy === "save" ? "Saving…" : "Save Provider"}
                   </button>
