@@ -22,6 +22,7 @@ BOSCode is a local-first desktop coding agent designed to understand a repositor
 - [x] Batch 4 — workspace selection, repository indexing, safe reads, search, and AI context
 - [x] Batch 5 — reviewed file changes, diffs, apply/reject/undo, and write permissions
 - [x] Batch 6 — approved terminal execution, project checks, and AI command-result context
+- [x] Batch 7 — approval-gated Git/GitHub workflows and PR assistance
 
 ### Batch 5 — reviewed agent changes
 
@@ -65,9 +66,26 @@ BOSCode is a local-first desktop coding agent designed to understand a repositor
 - [x] Sensitive-file staging and commit protection
 - [x] No force push, hard reset, or branch deletion workflows
 
-### Remaining roadmap
+### Batch 8 — production release
 
-- [ ] Batch 8 — production hardening, updater, installer/release pipeline, and regression suite
+- [x] BOSCode v1.0.0 version alignment
+- [x] Restrictive WebView content security policy
+- [x] Rotating production logs
+- [x] Signed GitHub Release updater configuration
+- [x] In-app Update Center with download/install progress
+- [x] Windows NSIS setup executable configuration
+- [x] Windows MSI installer configuration
+- [x] Installer downgrade protection
+- [x] Release version consistency check
+- [x] Rust formatting and Clippy gates
+- [x] Full Windows installer smoke build in CI
+- [x] GitHub Release workflow
+- [x] Signed updater artifact support when repository signing secrets are configured
+- [x] Security policy and release documentation
+
+### Roadmap status
+
+**Batches 1–8 complete.** BOSCode v1.0.0 is the first production-release milestone.
 
 ## Local development
 
@@ -98,7 +116,17 @@ npm run tauri dev
 ```powershell
 npm run build
 cargo check --manifest-path src-tauri/Cargo.toml
+cargo test --manifest-path src-tauri/Cargo.toml
+npm run version:check
 ```
+
+### Build the Windows installer
+
+```powershell
+npm run tauri build
+```
+
+This produces the NSIS setup executable and MSI bundle under `src-tauri/target/release/bundle/`.
 
 ## Architecture direction
 
@@ -117,7 +145,9 @@ BOSCode Desktop
 └── SQLite metadata / sessions
 ```
 
-BOSCode is being built so no BOSCode-owned live server is required for the core desktop experience.
+BOSCode does not require a BOSCode-owned live server for the core desktop experience. AI traffic goes directly to the provider configured by the user, and release updates can be delivered through signed GitHub Release metadata.
+
+See [SECURITY.md](SECURITY.md) for the security model and [docs/RELEASING.md](docs/RELEASING.md) for the production release process.
 
 
 ### Batch 4 — Workspace intelligence
