@@ -312,11 +312,7 @@ pub fn list_sessions(
 
         let rows = statement
             .query_map(
-                params![
-                    if include_archived { 1 } else { 0 },
-                    workspace,
-                    query
-                ],
+                params![if include_archived { 1 } else { 0 }, workspace, query],
                 |row| {
                     Ok(SessionSummary {
                         id: row.get(0)?,
@@ -375,10 +371,7 @@ pub fn create_session(
 }
 
 #[tauri::command]
-pub fn get_session(
-    id: String,
-    state: State<'_, HistoryState>,
-) -> Result<SessionDetail, String> {
+pub fn get_session(id: String, state: State<'_, HistoryState>) -> Result<SessionDetail, String> {
     with_connection(&state, |connection| {
         connection
             .execute(
@@ -615,7 +608,9 @@ mod tests {
     fn schema_enables_cascading_session_messages() {
         let mut connection = Connection::open_in_memory().unwrap();
         initialize_schema(&connection).unwrap();
-        connection.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        connection
+            .execute_batch("PRAGMA foreign_keys = ON;")
+            .unwrap();
 
         connection
             .execute(
@@ -638,7 +633,9 @@ mod tests {
             .unwrap();
 
         let remaining: i64 = connection
-            .query_row("SELECT COUNT(*) FROM session_messages", [], |row| row.get(0))
+            .query_row("SELECT COUNT(*) FROM session_messages", [], |row| {
+                row.get(0)
+            })
             .unwrap();
         assert_eq!(remaining, 0);
     }
