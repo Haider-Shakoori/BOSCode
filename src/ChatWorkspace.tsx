@@ -1,5 +1,5 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 
 type ChatWorkspaceProps = {
   provider: string;
@@ -22,31 +22,36 @@ type StreamEvent =
   | { type: "completed" }
   | { type: "error"; message: string };
 
-const providerMeta: Record<string, { id: string; baseUrl: string; model: string }> = {
+const providerMeta: Record<string, { id: string; baseUrl: string; model: string; keyRequired: boolean }> = {
   "Big Pickle": {
     id: "big-pickle",
     baseUrl: "https://opencode.ai/zen/v1",
     model: "big-pickle",
+    keyRequired: true,
   },
   OpenAI: {
     id: "openai",
     baseUrl: "https://api.openai.com/v1",
     model: "gpt-5.6",
+    keyRequired: true,
   },
   OpenRouter: {
     id: "openrouter",
     baseUrl: "https://openrouter.ai/api/v1",
     model: "",
+    keyRequired: true,
   },
   Ollama: {
     id: "ollama",
     baseUrl: "http://localhost:11434/v1",
     model: "",
+    keyRequired: false,
   },
   Custom: {
     id: "custom",
     baseUrl: "",
     model: "",
+    keyRequired: false,
   },
 };
 
@@ -80,9 +85,10 @@ export default function ChatWorkspace({
   const [sending, setSending] = useState(false);
 
   const meta = providerMeta[provider] ?? providerMeta["Big Pickle"];
-  const config = useMemo(() => {
-    const raw = localStorage.getItem(`boscode.provider.${meta.id}`);
+
+  const readProviderConfig = () => {
     const fallback = { baseUrl: meta.baseUrl, model: meta.model };
+    const raw = localStorage.getItem(`boscode.provider.${meta.id}`);
 
     if (!raw) return fallback;
 
@@ -94,7 +100,7 @@ export default function ChatWorkspace({
     } catch {
       return fallback;
     }
-  }, [meta.baseUrl, meta.id, meta.model]);
+  };
 
   useEffect(() => {
     localStorage.setItem(
@@ -113,10 +119,30 @@ export default function ChatWorkspace({
     const prompt = input.trim();
     if (!prompt || sending) return;
 
+    const config = readProviderConfig();
+
     if (!config.baseUrl.trim() || !config.model.trim()) {
       onNotice(`${provider} needs a Base URL and model`);
       onOpenSettings();
       return;
+    }
+
+    if (meta.keyRequired) {
+      try {
+        const hasKey = await invoke<boolean>("provider_secret_exists", {
+          providerId: meta.id,
+        });
+
+        if (!hasKey) {
+          onNotice(`${provider} needs an API key`);
+          onOpenSettings();
+          return;
+        }
+      } catch (caught) {
+        onNotice(`Unable to read ${provider} credentials`);
+        console.error(caught);
+        return;
+      }
     }
 
     const userMessage: Message = {
