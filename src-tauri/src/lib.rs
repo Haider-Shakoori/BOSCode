@@ -340,6 +340,106 @@ async fn run_opencode_collect(model: &str, prompt: &str, secret: &str) -> Result
     Ok(answer)
 }
 
+async fn stream_opencode_response(
+    model: &str,
+    prompt: &str,
+    secret: &str,
+    on_event: &Channel<ChatStreamEvent>,
+) -> Result<(), String> {
+    let mut child = spawn_opencode(model, prompt, secret).await?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "Unable to read OpenCode output.".to_string())?;
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| "Unable to read OpenCode diagnostics.".to_string())?;
+
+    let stderr_task = tokio::spawn(async move {
+        let mut stderr = stderr;
+        let mut diagnostics = String::new();
+        let _ = stderr.read_to_string(&mut diagnostics).await;
+        diagnostics
+    });
+
+    on_event
+        .send(ChatStreamEvent::Started {
+            model: model.to_string(),
+        })
+        .map_err(|error| format!("Unable to stream to the BOSCode UI: {error}"))?;
+
+    let mut lines = BufReader::new(stdout).lines();
+    let mut event_error: Option<String> = None;
+    let mut emitted_text = false;
+
+    while let Some(line) = lines
+        .next_line()
+        .await
+        .map_err(|error| format!("Unable to read OpenCode output: {error}"))?
+    {
+        let Ok(value) = serde_json::from_str::<Value>(&line) else {
+            continue;
+        };
+
+        if let Some(message) = opencode_error_event(&value) {
+            event_error = Some(message);
+            continue;
+        }
+
+        if let Some(text) = opencode_text_event(&value) {
+            let text = text.trim();
+            if text.is_empty() {
+                continue;
+            }
+
+            if emitted_text {
+                on_event
+                    .send(ChatStreamEvent::Delta {
+                        content: "\n\n".to_string(),
+                    })
+                    .map_err(|error| format!("Unable to stream to the BOSCode UI: {error}"))?;
+            }
+
+            on_event
+                .send(ChatStreamEvent::Delta {
+                    content: text.to_string(),
+                })
+                .map_err(|error| format!("Unable to stream to the BOSCode UI: {error}"))?;
+            emitted_text = true;
+        }
+    }
+
+    let status = child
+        .wait()
+        .await
+        .map_err(|error| format!("Unable to wait for OpenCode: {error}"))?;
+    let diagnostics = stderr_task.await.unwrap_or_default();
+
+    if let Some(message) = event_error {
+        return Err(format!("OpenCode returned an error: {message}"));
+    }
+
+    if !status.success() {
+        let diagnostics = diagnostics.trim();
+        return Err(if diagnostics.is_empty() {
+            format!("OpenCode exited with status {status}.")
+        } else {
+            format!("OpenCode failed: {}", diagnostics.chars().take(500).collect::<String>())
+        });
+    }
+
+    if !emitted_text {
+        return Err("OpenCode completed without returning assistant text.".to_string());
+    }
+
+    on_event
+        .send(ChatStreamEvent::Completed)
+        .map_err(|error| format!("Unable to finish the BOSCode stream: {error}"))?;
+
+    Ok(())
+}
+
 #[tauri::command]
 async fn opencode_status() -> Result<OpenCodeStatus, String> {
     let path = match opencode_binary() {
