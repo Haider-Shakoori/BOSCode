@@ -8,8 +8,12 @@ use futures_util::StreamExt;
 use keyring::{Entry, Error as KeyringError};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::path::PathBuf;
+use std::process::Stdio;
 use std::time::{Duration, Instant};
 use tauri::{ipc::Channel, Manager};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+use tokio::process::{Child, Command};
 
 const PROVIDER_SERVICE: &str = "BOSCode AI Providers";
 
