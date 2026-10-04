@@ -132,7 +132,6 @@ fn parse_command_line(command_line: &str) -> Result<(String, Vec<String>), Strin
     Ok((executable, args))
 }
 
-
 enum ResolvedExecutable {
     Direct(PathBuf),
     #[cfg(windows)]
@@ -283,7 +282,8 @@ pub fn detect_workspace_commands(
         commands.push(RecommendedCommand {
             command_line: "cargo check".to_string(),
             label: "Rust check".to_string(),
-            reason: "Compile-check the Rust project without producing release artifacts".to_string(),
+            reason: "Compile-check the Rust project without producing release artifacts"
+                .to_string(),
         });
     }
 
@@ -364,10 +364,7 @@ pub fn list_command_proposals(
 }
 
 #[tauri::command]
-pub fn reject_command(
-    command_id: String,
-    state: State<'_, CommandState>,
-) -> Result<bool, String> {
+pub fn reject_command(command_id: String, state: State<'_, CommandState>) -> Result<bool, String> {
     Ok(state
         .pending
         .lock()
@@ -377,9 +374,7 @@ pub fn reject_command(
 }
 
 #[tauri::command]
-pub fn command_history(
-    state: State<'_, CommandState>,
-) -> Result<Vec<CommandRunSummary>, String> {
+pub fn command_history(state: State<'_, CommandState>) -> Result<Vec<CommandRunSummary>, String> {
     Ok(state
         .history
         .lock()
@@ -388,9 +383,7 @@ pub fn command_history(
 }
 
 #[tauri::command]
-pub fn latest_command_context(
-    state: State<'_, CommandState>,
-) -> Result<Option<String>, String> {
+pub fn latest_command_context(state: State<'_, CommandState>) -> Result<Option<String>, String> {
     let history = state
         .history
         .lock()
@@ -556,11 +549,21 @@ pub async fn run_approved_command(
     let _ = stderr_task.await;
 
     while let Ok((is_stderr, line)) = line_rx.try_recv() {
-        push_capture(&mut captured, if is_stderr { "[stderr] " } else { "" }, &line);
+        push_capture(
+            &mut captured,
+            if is_stderr { "[stderr] " } else { "" },
+            &line,
+        );
         let event = if is_stderr {
-            CommandEvent::Stderr { run_id: run_id.clone(), line }
+            CommandEvent::Stderr {
+                run_id: run_id.clone(),
+                line,
+            }
         } else {
-            CommandEvent::Stdout { run_id: run_id.clone(), line }
+            CommandEvent::Stdout {
+                run_id: run_id.clone(),
+                line,
+            }
         };
         let _ = on_event.send(event);
     }
@@ -596,10 +599,7 @@ pub async fn run_approved_command(
 }
 
 #[tauri::command]
-pub fn cancel_command(
-    run_id: String,
-    state: State<'_, CommandState>,
-) -> Result<bool, String> {
+pub fn cancel_command(run_id: String, state: State<'_, CommandState>) -> Result<bool, String> {
     let mut running = state
         .running
         .lock()

@@ -142,7 +142,10 @@ fn ensure_write_permission(state: &State<'_, ChangeState>) -> Result<(), String>
     if mode == PermissionMode::WorkspaceWrite {
         Ok(())
     } else {
-        Err("BOSCode is in read-only mode. Enable Workspace Write before applying changes.".to_string())
+        Err(
+            "BOSCode is in read-only mode. Enable Workspace Write before applying changes."
+                .to_string(),
+        )
     }
 }
 
@@ -222,8 +225,8 @@ fn read_optional_text(path: &Path) -> Result<Option<String>, String> {
         return Ok(None);
     }
 
-    let metadata = fs::metadata(path)
-        .map_err(|error| format!("Unable to inspect current file: {error}"))?;
+    let metadata =
+        fs::metadata(path).map_err(|error| format!("Unable to inspect current file: {error}"))?;
 
     if !metadata.is_file() {
         return Err("The selected path is not a file.".to_string());
@@ -336,8 +339,8 @@ pub fn propose_workspace_change(
         }
         (ChangeAction::Delete, None)
     } else {
-        let content = proposed_content
-            .ok_or_else(|| "Proposed content is required.".to_string())?;
+        let content =
+            proposed_content.ok_or_else(|| "Proposed content is required.".to_string())?;
 
         if content.len() > MAX_CHANGE_BYTES {
             return Err("The proposed file is too large for BOSCode changes.".to_string());

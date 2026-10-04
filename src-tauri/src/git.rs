@@ -80,15 +80,32 @@ pub struct GitSnapshot {
 
 #[derive(Clone)]
 enum GitAction {
-    Stage { paths: Vec<String> },
-    Unstage { paths: Vec<String> },
-    Commit { message: String },
-    CreateBranch { branch: String },
-    SwitchBranch { branch: String },
+    Stage {
+        paths: Vec<String>,
+    },
+    Unstage {
+        paths: Vec<String>,
+    },
+    Commit {
+        message: String,
+    },
+    CreateBranch {
+        branch: String,
+    },
+    SwitchBranch {
+        branch: String,
+    },
     Pull,
     Push,
-    PushSetUpstream { remote: String, branch: String },
-    CreatePullRequest { title: String, body: String, draft: bool },
+    PushSetUpstream {
+        remote: String,
+        branch: String,
+    },
+    CreatePullRequest {
+        title: String,
+        body: String,
+        draft: bool,
+    },
 }
 
 impl GitAction {
@@ -119,7 +136,10 @@ impl GitAction {
                 format!("Push {branch} and set upstream to {remote}/{branch}")
             }
             Self::CreatePullRequest { title, draft, .. } => {
-                format!("Create {}pull request: {title}", if *draft { "draft " } else { "" })
+                format!(
+                    "Create {}pull request: {title}",
+                    if *draft { "draft " } else { "" }
+                )
             }
         }
     }
@@ -251,7 +271,10 @@ fn validate_paths(paths: Vec<String>, block_sensitive: bool) -> Result<Vec<Strin
 }
 
 fn staged_sensitive_paths(root: &Path) -> Vec<String> {
-    let Ok(output) = git_output(root, &["diff", "--cached", "--name-only", "--diff-filter=ACMR"]) else {
+    let Ok(output) = git_output(
+        root,
+        &["diff", "--cached", "--name-only", "--diff-filter=ACMR"],
+    ) else {
         return Vec::new();
     };
 
@@ -301,9 +324,9 @@ fn validate_remote(remote: String) -> Result<String, String> {
     let remote = remote.trim().to_string();
     let valid = !remote.is_empty()
         && remote.len() <= 100
-        && remote
-            .chars()
-            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | '.'));
+        && remote.chars().all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | '.')
+        });
 
     if valid {
         Ok(remote)
@@ -319,19 +342,36 @@ fn read_branch(root: &Path) -> Option<String> {
 }
 
 fn read_upstream(root: &Path) -> Option<String> {
-    git_output(root, &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"])
-        .ok()
-        .filter(|value| !value.is_empty())
+    git_output(
+        root,
+        &[
+            "rev-parse",
+            "--abbrev-ref",
+            "--symbolic-full-name",
+            "@{upstream}",
+        ],
+    )
+    .ok()
+    .filter(|value| !value.is_empty())
 }
 
 fn ahead_behind(root: &Path) -> (usize, usize) {
-    let Ok(value) = git_output(root, &["rev-list", "--left-right", "--count", "HEAD...@{upstream}"]) else {
+    let Ok(value) = git_output(
+        root,
+        &["rev-list", "--left-right", "--count", "HEAD...@{upstream}"],
+    ) else {
         return (0, 0);
     };
 
     let mut parts = value.split_whitespace();
-    let ahead = parts.next().and_then(|value| value.parse().ok()).unwrap_or(0);
-    let behind = parts.next().and_then(|value| value.parse().ok()).unwrap_or(0);
+    let ahead = parts
+        .next()
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(0);
+    let behind = parts
+        .next()
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(0);
     (ahead, behind)
 }
 
@@ -381,7 +421,15 @@ fn parse_status(root: &Path) -> Vec<GitFileStatus> {
 
 fn parse_branches(root: &Path) -> Vec<GitBranch> {
     let format = "%(HEAD)%09%(refname:short)%09%(upstream:short)";
-    let Ok(output) = git_output(root, &["for-each-ref", "--sort=-committerdate", &format!("--format={format}"), "refs/heads"]) else {
+    let Ok(output) = git_output(
+        root,
+        &[
+            "for-each-ref",
+            "--sort=-committerdate",
+            &format!("--format={format}"),
+            "refs/heads",
+        ],
+    ) else {
         return Vec::new();
     };
 
@@ -456,7 +504,11 @@ fn github_repo_from_remote(remote: &str) -> Option<(String, String)> {
         }
     }
 
-    for prefix in ["https://github.com/", "http://github.com/", "ssh://git@github.com/"] {
+    for prefix in [
+        "https://github.com/",
+        "http://github.com/",
+        "ssh://git@github.com/",
+    ] {
         if let Some(rest) = trimmed.strip_prefix(prefix) {
             let repo = rest.trim_matches('/').to_string();
             if repo.split('/').count() == 2 {
@@ -635,7 +687,12 @@ pub fn propose_git_stage(
 ) -> Result<GitActionProposal, String> {
     let root = workspace_root(&workspace)?;
     ensure_git_repository(&root)?;
-    store_proposal(&state, GitAction::Stage { paths: validate_paths(paths, true)? })
+    store_proposal(
+        &state,
+        GitAction::Stage {
+            paths: validate_paths(paths, true)?,
+        },
+    )
 }
 
 #[tauri::command]
@@ -646,7 +703,12 @@ pub fn propose_git_unstage(
 ) -> Result<GitActionProposal, String> {
     let root = workspace_root(&workspace)?;
     ensure_git_repository(&root)?;
-    store_proposal(&state, GitAction::Unstage { paths: validate_paths(paths, false)? })
+    store_proposal(
+        &state,
+        GitAction::Unstage {
+            paths: validate_paths(paths, false)?,
+        },
+    )
 }
 
 #[tauri::command]
@@ -705,7 +767,9 @@ pub fn propose_git_pull(
     let root = workspace_root(&workspace)?;
     ensure_git_repository(&root)?;
     if read_upstream(&root).is_none() {
-        return Err("The current branch has no upstream. Configure one before pulling.".to_string());
+        return Err(
+            "The current branch has no upstream. Configure one before pulling.".to_string(),
+        );
     }
     store_proposal(&state, GitAction::Pull)
 }
@@ -728,10 +792,7 @@ pub fn propose_git_push(
         .ok_or_else(|| "BOSCode cannot push while Git is in detached HEAD state.".to_string())?;
     let remote = validate_remote(remote.unwrap_or_else(|| "origin".to_string()))?;
 
-    store_proposal(
-        &state,
-        GitAction::PushSetUpstream { remote, branch },
-    )
+    store_proposal(&state, GitAction::PushSetUpstream { remote, branch })
 }
 
 #[tauri::command]
@@ -746,7 +807,9 @@ pub fn propose_github_pull_request(
     ensure_git_repository(&root)?;
 
     if which::which("gh").is_err() {
-        return Err("Install GitHub CLI (gh) before creating pull requests from BOSCode.".to_string());
+        return Err(
+            "Install GitHub CLI (gh) before creating pull requests from BOSCode.".to_string(),
+        );
     }
 
     let title = title.trim().to_string();
@@ -769,10 +832,7 @@ pub fn propose_github_pull_request(
 }
 
 #[tauri::command]
-pub fn reject_git_action(
-    action_id: String,
-    state: State<'_, GitState>,
-) -> Result<bool, String> {
+pub fn reject_git_action(action_id: String, state: State<'_, GitState>) -> Result<bool, String> {
     Ok(state
         .pending
         .lock()
@@ -815,47 +875,35 @@ pub async fn execute_git_action(
             run_git(&root, &args).await.map(|output| (output, None))
         }
         GitAction::Commit { message } => {
-            run_git(
-                &root,
-                &["commit".to_string(), "-m".to_string(), message],
-            )
-            .await
-            .map(|output| (output, None))
+            run_git(&root, &["commit".to_string(), "-m".to_string(), message])
+                .await
+                .map(|output| (output, None))
         }
         GitAction::CreateBranch { branch } => {
-            run_git(
-                &root,
-                &["switch".to_string(), "-c".to_string(), branch],
-            )
+            run_git(&root, &["switch".to_string(), "-c".to_string(), branch])
+                .await
+                .map(|output| (output, None))
+        }
+        GitAction::SwitchBranch { branch } => run_git(&root, &["switch".to_string(), branch])
             .await
-            .map(|output| (output, None))
-        }
-        GitAction::SwitchBranch { branch } => {
-            run_git(&root, &["switch".to_string(), branch])
-                .await
-                .map(|output| (output, None))
-        }
-        GitAction::Pull => {
-            run_git(&root, &["pull".to_string(), "--ff-only".to_string()])
-                .await
-                .map(|output| (output, None))
-        }
+            .map(|output| (output, None)),
+        GitAction::Pull => run_git(&root, &["pull".to_string(), "--ff-only".to_string()])
+            .await
+            .map(|output| (output, None)),
         GitAction::Push => run_git(&root, &["push".to_string()])
             .await
             .map(|output| (output, None)),
-        GitAction::PushSetUpstream { remote, branch } => {
-            run_git(
-                &root,
-                &[
-                    "push".to_string(),
-                    "--set-upstream".to_string(),
-                    remote,
-                    branch,
-                ],
-            )
-            .await
-            .map(|output| (output, None))
-        }
+        GitAction::PushSetUpstream { remote, branch } => run_git(
+            &root,
+            &[
+                "push".to_string(),
+                "--set-upstream".to_string(),
+                remote,
+                branch,
+            ],
+        )
+        .await
+        .map(|output| (output, None)),
         GitAction::CreatePullRequest { title, body, draft } => {
             let mut args = vec![
                 "pr".to_string(),
@@ -872,7 +920,9 @@ pub async fn execute_git_action(
             run_gh(&root, &args).await.map(|output| {
                 let web_url = output
                     .lines()
-                    .find(|line| line.trim().starts_with("http://") || line.trim().starts_with("https://"))
+                    .find(|line| {
+                        line.trim().starts_with("http://") || line.trim().starts_with("https://")
+                    })
                     .map(|line| line.trim().to_string());
                 (output, web_url)
             })
@@ -892,7 +942,9 @@ pub async fn execute_git_action(
 
 #[cfg(test)]
 mod tests {
-    use super::{github_repo_from_remote, validate_commit_message, validate_relative_path, validate_remote};
+    use super::{
+        github_repo_from_remote, validate_commit_message, validate_relative_path, validate_remote,
+    };
 
     #[test]
     fn parses_common_github_remote_formats() {
