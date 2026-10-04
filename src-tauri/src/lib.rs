@@ -1,3 +1,5 @@
+mod workspace;
+
 use futures_util::StreamExt;
 use keyring::{Entry, Error as KeyringError};
 use serde::{Deserialize, Serialize};
@@ -354,8 +356,16 @@ async fn stream_chat(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .manage(workspace::WorkspaceState::default())
         .invoke_handler(tauri::generate_handler![
             app_info,
+            workspace::set_workspace,
+            workspace::get_workspace,
+            workspace::list_workspace,
+            workspace::read_workspace_file,
+            workspace::search_workspace,
+            workspace::build_workspace_context,
             save_provider_secret,
             provider_secret_exists,
             delete_provider_secret,
