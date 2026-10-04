@@ -326,17 +326,10 @@ mod tests {
             "fn total() {\n    // checkout rounding fix\n}\n",
         )
         .unwrap();
-        fs::write(
-            root.join("src").join("other.rs"),
-            "fn unrelated() {}\n",
-        )
-        .unwrap();
+        fs::write(root.join("src").join("other.rs"), "fn unrelated() {}\n").unwrap();
 
         let index = WorkspaceIndex::build(&root, None);
-        let snippets = index.rank_snippets(
-            &["checkout".to_string(), "rounding".to_string()],
-            8,
-        );
+        let snippets = index.rank_snippets(&["checkout".to_string(), "rounding".to_string()], 8);
 
         assert!(!snippets.is_empty());
         assert_eq!(snippets[0].path, "src/invoice_checkout.rs");
