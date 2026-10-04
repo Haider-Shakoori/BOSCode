@@ -1,3 +1,4 @@
+mod memory;
 mod changes;
 mod git;
 mod terminal;
@@ -8,7 +9,7 @@ use keyring::{Entry, Error as KeyringError};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::time::{Duration, Instant};
-use tauri::ipc::Channel;
+use tauri::{ipc::Channel, Manager};
 
 const PROVIDER_SERVICE: &str = "BOSCode AI Providers";
 
@@ -367,12 +368,30 @@ pub fn run() {
         )
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
+            let data_dir = app
+                .path()
+                .app_data_dir()
+                .map_err(|error| format!("Unable to resolve BOSCode data directory: {error}"))?;
+            app.state::<memory::MemoryState>()
+                .initialize(&data_dir)
+                .map_err(std::io::Error::other)?;
+            Ok(())
+        })
+        .manage(memory::MemoryState::default())
         .manage(workspace::WorkspaceState::default())
         .manage(git::GitState::default())
         .manage(terminal::CommandState::default())
         .manage(changes::ChangeState::default())
         .invoke_handler(tauri::generate_handler![
             app_info,
+            memory::list_memories,
+            memory::create_memory,
+            memory::update_memory,
+            memory::delete_memory,
+            memory::memory_stats,
+            memory::capture_memory_from_message,
+            memory::build_memory_context,
             workspace::set_workspace,
             workspace::get_workspace,
             workspace::list_workspace,
