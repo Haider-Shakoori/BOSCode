@@ -87,6 +87,33 @@ BOSCode is a local-first desktop coding agent designed to understand a repositor
 
 **Batches 1–8 complete.** BOSCode v1.0.0 is the first production-release milestone.
 
+## BOSCode v1.1 development
+
+### Persistent memory
+
+BOSCode v1.1 adds a local ChatGPT-like memory layer:
+
+- SQLite/WAL persistence in the BOSCode app-data directory
+- Global memories shared across projects
+- Workspace-scoped memories recalled only for the exact repository
+- Preference, instruction, project, workflow, and context memory types
+- Automatic recall of relevant memories into future AI prompts
+- Auto-remember for strong phrases such as `remember that`, `from now on`, and `for this project`
+- Pin, edit, enable/disable, search, and forget controls
+- Master **Use memory** switch and separate **Auto-remember** switch
+- Duplicate detection and recall usage tracking
+- Likely passwords, API keys, access tokens, private keys, and credential material are blocked from memory
+
+Memory is local-first. Provider API keys remain in the operating-system credential store and are never copied into the memory database.
+
+### Still planned for v1.1
+
+- SQLite multi-session conversation history
+- Session search / rename / pin / archive
+- Per-project session grouping
+- Background incremental repository index and file watching
+- Cached context ranking and token-budget-aware history summaries
+
 ## Local development
 
 ### Prerequisites
