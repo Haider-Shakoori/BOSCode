@@ -518,7 +518,6 @@ pub fn save_session_messages(
     read_session_summary(connection, &session_id)
 }
 
-
 #[tauri::command]
 pub fn build_session_context(
     id: String,
@@ -544,10 +543,7 @@ pub fn build_session_context(
 
         let rows = statement
             .query_map(params![id], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
-                ))
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
             })
             .map_err(|error| format!("Unable to read session context: {error}"))?;
 
