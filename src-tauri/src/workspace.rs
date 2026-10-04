@@ -525,3 +525,36 @@ pub fn build_workspace_context(
     let root = workspace_root(&state)?;
     Ok(build_context(&root, &query, active_file.as_deref()))
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::{context_tokens, is_sensitive_path};
+    use std::path::Path;
+
+    #[test]
+    fn blocks_common_secret_files_but_allows_examples() {
+        assert!(is_sensitive_path(Path::new(".env")));
+        assert!(is_sensitive_path(Path::new(".env.production")));
+        assert!(is_sensitive_path(Path::new("id_rsa")));
+        assert!(is_sensitive_path(Path::new("server.key")));
+        assert!(!is_sensitive_path(Path::new(".env.example")));
+        assert!(!is_sensitive_path(Path::new("config.ts")));
+    }
+
+    #[test]
+    fn context_tokens_are_normalized_deduplicated_and_bounded() {
+        let tokens = context_tokens(
+            "Fix Checkout checkout rounding in Invoice.php and CheckoutTest with repository context",
+        );
+
+        assert!(tokens.contains(&"checkout".to_string()));
+        assert!(tokens.contains(&"rounding".to_string()));
+        assert!(tokens.contains(&"invoice".to_string()));
+        assert_eq!(
+            tokens.iter().filter(|token| token.as_str() == "checkout").count(),
+            1
+        );
+        assert!(tokens.len() <= 12);
+    }
+}
