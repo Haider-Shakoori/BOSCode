@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import ProviderSettings from "./ProviderSettings";
 
 type NavItem = { icon: string; label: string; badge?: string };
 
@@ -49,6 +50,7 @@ export default function App() {
   const [message, setMessage] = useState("");
   const [provider, setProvider] = useState("Big Pickle");
   const [notice, setNotice] = useState("Foundation ready");
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const stats = useMemo(
     () => [["3", "files changed"], ["143", "tests passing"], ["12.34s", "last run"]],
@@ -79,7 +81,7 @@ export default function App() {
         <div className="window-actions" aria-label="Workspace actions">
           <button title="Command palette">⌘</button>
           <button title="Notifications">◌</button>
-          <button title="Settings" onClick={() => setNotice("Settings opened")}>⚙</button>
+          <button title="Settings" onClick={() => setSettingsOpen(true)}>⚙</button>
         </div>
       </header>
 
@@ -123,7 +125,7 @@ export default function App() {
           </div>
 
           <div className="sidebar-footer">
-            <button className="nav-item" onClick={() => setNotice("Settings opened")}>
+            <button className="nav-item" onClick={() => setSettingsOpen(true)}>
               <span className="nav-icon">⚙</span><span>Settings</span>
             </button>
             <div className="profile-card">
@@ -269,6 +271,15 @@ export default function App() {
           </section>
         </aside>
       </section>
+
+      {settingsOpen && (
+        <ProviderSettings
+          activeProvider={provider}
+          onProviderChange={setProvider}
+          onClose={() => setSettingsOpen(false)}
+          onNotice={setNotice}
+        />
+      )}
 
       <footer className="statusbar">
         <span><i className="status-dot" /> {notice}</span>
