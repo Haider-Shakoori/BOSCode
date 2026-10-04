@@ -4,6 +4,7 @@ use serde_json::Value;
 use std::{
     collections::HashMap,
     fs,
+    path::{Path, PathBuf},
     process::Stdio,
     sync::{
         atomic::{AtomicU64, Ordering},
@@ -129,6 +130,64 @@ fn parse_command_line(command_line: &str) -> Result<(String, Vec<String>), Strin
 
     let args = parts.into_iter().skip(1).collect::<Vec<_>>();
     Ok((executable, args))
+}
+
+
+enum ResolvedExecutable {
+    Direct(PathBuf),
+    #[cfg(windows)]
+    WindowsBatch(PathBuf),
+}
+
+fn resolve_executable(executable: &str) -> Result<ResolvedExecutable, String> {
+    let path = which::which(executable)
+        .map_err(|_| format!("Executable not found on PATH: {executable}"))?;
+
+    #[cfg(windows)]
+    {
+        let extension = path
+            .extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+
+        if matches!(extension.as_str(), "cmd" | "bat") {
+            return Ok(ResolvedExecutable::WindowsBatch(path));
+        }
+    }
+
+    Ok(ResolvedExecutable::Direct(path))
+}
+
+#[cfg(windows)]
+fn safe_batch_token(value: &str) -> Result<String, String> {
+    if value.chars().any(|character| {
+        matches!(
+            character,
+            '"' | '%' | '&' | '|' | '<' | '>' | '^' | '\r' | '\n'
+        )
+    }) {
+        return Err(
+            "This argument contains shell-control characters that BOSCode will not pass to a Windows .cmd/.bat shim."
+                .to_string(),
+        );
+    }
+
+    Ok(format!("\"{value}\""))
+}
+
+#[cfg(windows)]
+fn windows_batch_command(path: &Path, args: &[String]) -> Result<String, String> {
+    let path = path
+        .to_str()
+        .ok_or_else(|| "The command path is not valid Unicode.".to_string())?;
+
+    let mut parts = vec![safe_batch_token(path)?];
+    for arg in args {
+        parts.push(safe_batch_token(arg)?);
+    }
+
+    Ok(parts.join(" "))
 }
 
 fn command_line(executable: &str, args: &[String]) -> String {
@@ -385,9 +444,23 @@ pub async fn run_approved_command(
             },
         );
 
-    let mut command = Command::new(&proposal.executable);
+    let resolved = resolve_executable(&proposal.executable)?;
+    let mut command = match resolved {
+        ResolvedExecutable::Direct(path) => {
+            let mut command = Command::new(path);
+            command.args(&proposal.args);
+            command
+        }
+        #[cfg(windows)]
+        ResolvedExecutable::WindowsBatch(path) => {
+            let mut command = Command::new("cmd.exe");
+            let wrapped = windows_batch_command(&path, &proposal.args)?;
+            command.args(["/D", "/V:OFF", "/S", "/C", &wrapped]);
+            command
+        }
+    };
+
     command
-        .args(&proposal.args)
         .current_dir(&root)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
