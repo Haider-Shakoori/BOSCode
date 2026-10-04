@@ -25,6 +25,11 @@ type StreamEvent =
   | { type: "completed" }
   | { type: "error"; message: string };
 
+type MemoryCaptureResult = {
+  captured: number;
+  skippedSensitive: boolean;
+};
+
 const providerMeta: Record<string, { id: string; baseUrl: string; model: string; keyRequired: boolean }> = {
   "Big Pickle": {
     id: "big-pickle",
@@ -124,6 +129,26 @@ export default function ChatWorkspace({
     const prompt = input.trim();
     if (!prompt || sending) return;
 
+    const memoryEnabled = localStorage.getItem("boscode.memory.enabled") !== "false";
+    const autoCapture = localStorage.getItem("boscode.memory.autoCapture") !== "false";
+
+    if (memoryEnabled && autoCapture) {
+      try {
+        const capture = await invoke<MemoryCaptureResult>("capture_memory_from_message", {
+          content: prompt,
+          workspace: workspace?.root ?? null,
+        });
+
+        if (capture.captured > 0) {
+          onNotice(`BOSCode remembered ${capture.captured} preference${capture.captured === 1 ? "" : "s"}`);
+        } else if (capture.skippedSensitive) {
+          onNotice("Sensitive-looking content was not saved to memory");
+        }
+      } catch (caught) {
+        console.warn("Memory capture unavailable", caught);
+      }
+    }
+
     const config = readProviderConfig();
 
     if (!config.baseUrl.trim() || !config.model.trim()) {
@@ -162,8 +187,21 @@ export default function ChatWorkspace({
       content: "",
       streaming: true,
     };
+    let memoryContext = "";
     let workspaceContext = "";
     let terminalContext = "";
+
+    if (memoryEnabled) {
+      try {
+        memoryContext = await invoke<string>("build_memory_context", {
+          query: prompt,
+          workspace: workspace?.root ?? null,
+        });
+      } catch (caught) {
+        console.warn("Persistent memory unavailable", caught);
+      }
+    }
+
     if (workspace) {
       try {
         workspaceContext = await invoke<string>("build_workspace_context", {
@@ -187,7 +225,7 @@ export default function ChatWorkspace({
       content,
     }));
 
-    const agentContext = [workspaceContext, terminalContext]
+    const agentContext = [memoryContext, workspaceContext, terminalContext]
       .filter(Boolean)
       .join("\n\n");
 
@@ -197,7 +235,8 @@ export default function ChatWorkspace({
             role: "system",
             content:
               "You are BOSCode, a coding agent working inside the user's selected repository. " +
-              "Use the supplied workspace and approved-command context as evidence. Do not invent file contents, command results, or claim edits/commands were applied unless the context proves it. " +
+              "Use persistent memory as user/project preferences and use the supplied workspace and approved-command context as evidence. Workspace memory overrides conflicting global memory. " +
+              "Do not expose remembered context unnecessarily, and do not invent file contents, command results, or claim edits/commands were applied unless the context proves it. " +
               "If the latest approved command failed, analyze the failure and recommend the smallest concrete fix and the next command to validate it. " +
               "When proposing changes, name the exact files and explain what should change.\n\n" +
               agentContext,
@@ -335,7 +374,7 @@ export default function ChatWorkspace({
           <span>▱ {workspace.name}</span>
           <span>⑂ {workspace.branch ?? "no branch"}</span>
           {activeFile && <span className="active-context-file">＋ {activeFile.path}</span>}
-          <small>repo + approved command context</small>
+          <small>memory + repo + approved command context</small>
         </div>
       )}
 
