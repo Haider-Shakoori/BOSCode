@@ -3,7 +3,7 @@ use serde::Serialize;
 use std::{
     cmp::Reverse,
     fs,
-    path::{Path, PathBuf},
+    path::Path,
     sync::{
         atomic::{AtomicU64, Ordering},
         Mutex,
@@ -227,18 +227,31 @@ fn get_memory(connection: &Connection, id: &str) -> Result<MemoryItem, String> {
         .map_err(|error| format!("Unable to read memory: {error}"))
 }
 
+struct NewMemory {
+    content: String,
+    scope: String,
+    workspace: Option<String>,
+    kind: String,
+    pinned: bool,
+    source: String,
+}
+
 fn insert_memory(
     connection: &Connection,
     state: &MemoryState,
-    content: String,
-    scope: &str,
-    workspace: Option<String>,
-    kind: &str,
-    pinned: bool,
-    source: &str,
+    input: NewMemory,
 ) -> Result<MemoryItem, String> {
-    validate_scope(scope)?;
-    validate_kind(kind)?;
+    let NewMemory {
+        content,
+        scope,
+        workspace,
+        kind,
+        pinned,
+        source,
+    } = input;
+
+    validate_scope(&scope)?;
+    validate_kind(&kind)?;
 
     if scope == "workspace" && workspace.as_deref().unwrap_or("").trim().is_empty() {
         return Err("Workspace-scoped memory requires an open workspace.".to_string());
@@ -514,12 +527,14 @@ pub fn create_memory(
         insert_memory(
             connection,
             &state,
-            content,
-            validate_scope(&scope)?,
-            workspace,
-            validate_kind(&kind)?,
-            pinned.unwrap_or(false),
-            "manual",
+            NewMemory {
+                content,
+                scope,
+                workspace,
+                kind,
+                pinned: pinned.unwrap_or(false),
+                source: "manual".to_string(),
+            },
         )
     })
 }
@@ -665,12 +680,14 @@ pub fn capture_memory_from_message(
         insert_memory(
             connection,
             &state,
-            normalized,
-            scope,
-            scoped_workspace,
-            kind,
-            false,
-            "conversation",
+            NewMemory {
+                content: normalized,
+                scope: scope.to_string(),
+                workspace: scoped_workspace,
+                kind: kind.to_string(),
+                pinned: false,
+                source: "conversation".to_string(),
+            },
         )
     })?;
 
