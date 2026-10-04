@@ -129,19 +129,24 @@ export default function ChatWorkspace({
     const prompt = input.trim();
     if (!prompt || sending) return;
 
-    try {
-      const capture = await invoke<MemoryCaptureResult>("capture_memory_from_message", {
-        content: prompt,
-        workspace: workspace?.root ?? null,
-      });
+    const memoryEnabled = localStorage.getItem("boscode.memory.enabled") !== "false";
+    const autoCapture = localStorage.getItem("boscode.memory.autoCapture") !== "false";
 
-      if (capture.captured > 0) {
-        onNotice(`BOSCode remembered ${capture.captured} preference${capture.captured === 1 ? "" : "s"}`);
-      } else if (capture.skippedSensitive) {
-        onNotice("Sensitive-looking content was not saved to memory");
+    if (memoryEnabled && autoCapture) {
+      try {
+        const capture = await invoke<MemoryCaptureResult>("capture_memory_from_message", {
+          content: prompt,
+          workspace: workspace?.root ?? null,
+        });
+
+        if (capture.captured > 0) {
+          onNotice(`BOSCode remembered ${capture.captured} preference${capture.captured === 1 ? "" : "s"}`);
+        } else if (capture.skippedSensitive) {
+          onNotice("Sensitive-looking content was not saved to memory");
+        }
+      } catch (caught) {
+        console.warn("Memory capture unavailable", caught);
       }
-    } catch (caught) {
-      console.warn("Memory capture unavailable", caught);
     }
 
     const config = readProviderConfig();
@@ -186,13 +191,15 @@ export default function ChatWorkspace({
     let workspaceContext = "";
     let terminalContext = "";
 
-    try {
-      memoryContext = await invoke<string>("build_memory_context", {
-        query: prompt,
-        workspace: workspace?.root ?? null,
-      });
-    } catch (caught) {
-      console.warn("Persistent memory unavailable", caught);
+    if (memoryEnabled) {
+      try {
+        memoryContext = await invoke<string>("build_memory_context", {
+          query: prompt,
+          workspace: workspace?.root ?? null,
+        });
+      } catch (caught) {
+        console.warn("Persistent memory unavailable", caught);
+      }
     }
 
     if (workspace) {
