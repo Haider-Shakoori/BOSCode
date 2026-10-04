@@ -30,3 +30,5 @@ which = "8"
 
 tauri-plugin-updater = "2.12"
 tauri-plugin-log = "2"
+
+rusqlite = { version = "0.32", features = ["bundled"] }
