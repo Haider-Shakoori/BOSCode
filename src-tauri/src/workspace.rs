@@ -1,3 +1,6 @@
+mod index;
+
+use index::WorkspaceIndex;
 use serde::Serialize;
 use std::{
     fs,
@@ -5,16 +8,17 @@ use std::{
     sync::Mutex,
 };
 use tauri::State;
-use walkdir::{DirEntry, WalkDir};
+use walkdir::DirEntry;
 
 const MAX_WORKSPACE_ENTRIES: usize = 6_000;
 const MAX_READ_BYTES: u64 = 1_500_000;
-const MAX_SEARCH_BYTES: u64 = 1_000_000;
 const MAX_CONTEXT_CHARS: usize = 32_000;
+const INDEX_REFRESH_SECONDS: u64 = 2;
 
 #[derive(Default)]
 pub struct WorkspaceState {
     root: Mutex<Option<PathBuf>>,
+    index: Mutex<Option<WorkspaceIndex>>,
 }
 
 #[derive(Clone, Serialize)]
@@ -202,66 +206,14 @@ fn read_git_branch(root: &Path) -> Option<String> {
     None
 }
 
-fn scan_workspace(root: &Path) -> (Vec<WorkspaceEntry>, usize, usize, bool) {
-    let mut entries = Vec::new();
-    let mut file_count = 0usize;
-    let mut directory_count = 0usize;
-    let mut truncated = false;
-
-    for entry in WalkDir::new(root)
-        .follow_links(false)
-        .into_iter()
-        .filter_entry(|entry| !ignored_entry(entry))
-        .filter_map(Result::ok)
-        .skip(1)
-    {
-        if entries.len() >= MAX_WORKSPACE_ENTRIES {
-            truncated = true;
-            break;
-        }
-
-        if entry.file_type().is_symlink() || is_sensitive_path(entry.path()) {
-            continue;
-        }
-
-        let Ok(relative) = entry.path().strip_prefix(root) else {
-            continue;
-        };
-
-        let is_dir = entry.file_type().is_dir();
-        if is_dir {
-            directory_count += 1;
-        } else if entry.file_type().is_file() {
-            file_count += 1;
-        } else {
-            continue;
-        }
-
-        entries.push(WorkspaceEntry {
-            path: relative_display(relative),
-            name: entry.file_name().to_string_lossy().to_string(),
-            is_dir,
-            depth: relative.components().count().saturating_sub(1),
-            size: if is_dir {
-                None
-            } else {
-                entry.metadata().ok().map(|metadata| metadata.len())
-            },
-        });
-    }
-
-    entries.sort_by(|left, right| {
-        left.path
-            .to_ascii_lowercase()
-            .cmp(&right.path.to_ascii_lowercase())
-    });
-
-    (entries, file_count, directory_count, truncated)
+fn now_seconds() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or_default()
 }
 
-fn workspace_summary(root: &Path) -> WorkspaceSummary {
-    let (_, file_count, directory_count, truncated) = scan_workspace(root);
-
+fn workspace_summary_from_index(root: &Path, index: &WorkspaceIndex) -> WorkspaceSummary {
     WorkspaceSummary {
         root: root.to_string_lossy().to_string(),
         name: root
@@ -270,10 +222,55 @@ fn workspace_summary(root: &Path) -> WorkspaceSummary {
             .unwrap_or("Workspace")
             .to_string(),
         branch: read_git_branch(root),
-        file_count,
-        directory_count,
-        truncated,
+        file_count: index.file_count,
+        directory_count: index.directory_count,
+        truncated: index.truncated,
     }
+}
+
+fn refresh_workspace_index(
+    state: &State<'_, WorkspaceState>,
+    force: bool,
+) -> Result<PathBuf, String> {
+    let root = workspace_root(state)?;
+    let mut guard = state
+        .index
+        .lock()
+        .map_err(|_| "Workspace index is unavailable.".to_string())?;
+
+    let should_refresh = force
+        || guard
+            .as_ref()
+            .map(|index| {
+                index.root != root
+                    || now_seconds().saturating_sub(index.built_at) >= INDEX_REFRESH_SECONDS
+            })
+            .unwrap_or(true);
+
+    if should_refresh {
+        let next = WorkspaceIndex::build(&root, guard.as_ref());
+        *guard = Some(next);
+    }
+
+    Ok(root)
+}
+
+fn with_workspace_index<T>(
+    state: &State<'_, WorkspaceState>,
+    force: bool,
+    operation: impl FnOnce(&WorkspaceIndex) -> T,
+) -> Result<T, String> {
+    refresh_workspace_index(state, force)?;
+
+    let guard = state
+        .index
+        .lock()
+        .map_err(|_| "Workspace index is unavailable.".to_string())?;
+    let index = guard
+        .as_ref()
+        .ok_or_else(|| "Workspace index is not initialized.".to_string())?;
+
+    Ok(operation(index))
 }
 
 fn read_text_file(root: &Path, relative_path: &str) -> Result<WorkspaceFile, String> {
@@ -306,69 +303,6 @@ fn read_text_file(root: &Path, relative_path: &str) -> Result<WorkspaceFile, Str
     })
 }
 
-fn search_root(root: &Path, query: &str, limit: usize) -> Vec<SearchHit> {
-    let needle = query.trim().to_ascii_lowercase();
-    if needle.len() < 2 {
-        return Vec::new();
-    }
-
-    let mut hits = Vec::new();
-
-    'files: for entry in WalkDir::new(root)
-        .follow_links(false)
-        .into_iter()
-        .filter_entry(|entry| !ignored_entry(entry))
-        .filter_map(Result::ok)
-    {
-        if !entry.file_type().is_file()
-            || entry.file_type().is_symlink()
-            || is_sensitive_path(entry.path())
-        {
-            continue;
-        }
-
-        let Ok(metadata) = entry.metadata() else {
-            continue;
-        };
-
-        if metadata.len() > MAX_SEARCH_BYTES {
-            continue;
-        }
-
-        let Ok(bytes) = fs::read(entry.path()) else {
-            continue;
-        };
-
-        if bytes.iter().take(8_192).any(|byte| *byte == 0) {
-            continue;
-        }
-
-        let Ok(content) = String::from_utf8(bytes) else {
-            continue;
-        };
-
-        let Ok(relative) = entry.path().strip_prefix(root) else {
-            continue;
-        };
-
-        for (index, line) in content.lines().enumerate() {
-            if line.to_ascii_lowercase().contains(&needle) {
-                hits.push(SearchHit {
-                    path: relative_display(relative),
-                    line: index + 1,
-                    preview: line.trim().chars().take(240).collect(),
-                });
-
-                if hits.len() >= limit {
-                    break 'files;
-                }
-            }
-        }
-    }
-
-    hits
-}
-
 fn context_tokens(query: &str) -> Vec<String> {
     let mut tokens = query
         .split(|character: char| {
@@ -390,9 +324,13 @@ fn context_tokens(query: &str) -> Vec<String> {
     tokens
 }
 
-fn build_context(root: &Path, query: &str, active_file: Option<&str>) -> String {
-    let summary = workspace_summary(root);
-    let (entries, _, _, _) = scan_workspace(root);
+fn build_context(
+    root: &Path,
+    index: &WorkspaceIndex,
+    query: &str,
+    active_file: Option<&str>,
+) -> String {
+    let summary = workspace_summary_from_index(root, index);
     let mut output = String::new();
 
     output.push_str("BOSCode workspace context\n");
@@ -412,7 +350,7 @@ fn build_context(root: &Path, query: &str, active_file: Option<&str>) -> String 
     ));
 
     output.push_str("Repository paths:\n");
-    for entry in entries.iter().filter(|entry| !entry.is_dir).take(120) {
+    for entry in index.entries.iter().filter(|entry| !entry.is_dir).take(120) {
         output.push_str("- ");
         output.push_str(&entry.path);
         output.push('\n');
@@ -431,23 +369,14 @@ fn build_context(root: &Path, query: &str, active_file: Option<&str>) -> String 
     }
 
     let tokens = context_tokens(query);
-    if !tokens.is_empty() {
-        output.push_str("\nRelevant repository snippets:\n");
-        let mut snippet_count = 0usize;
-
-        for token in tokens {
-            for hit in search_root(root, &token, 4) {
-                output.push_str(&format!("- {}:{}: {}\n", hit.path, hit.line, hit.preview));
-                snippet_count += 1;
-
-                if snippet_count >= 16 {
-                    break;
-                }
-            }
-
-            if snippet_count >= 16 {
-                break;
-            }
+    let snippets = index.rank_snippets(&tokens, 16);
+    if !snippets.is_empty() {
+        output.push_str("\nRelevant repository snippets (cached rank):\n");
+        for snippet in snippets {
+            output.push_str(&format!(
+                "- {}:{} [score {}]: {}\n",
+                snippet.path, snippet.line, snippet.score, snippet.preview
+            ));
         }
     }
 
@@ -475,7 +404,17 @@ pub fn set_workspace(
         *root = Some(canonical.clone());
     }
 
-    Ok(workspace_summary(&canonical))
+    let next_index = WorkspaceIndex::build(&canonical, None);
+    let summary = workspace_summary_from_index(&canonical, &next_index);
+    {
+        let mut index = state
+            .index
+            .lock()
+            .map_err(|_| "Workspace index is unavailable.".to_string())?;
+        *index = Some(next_index);
+    }
+
+    Ok(summary)
 }
 
 #[tauri::command]
@@ -486,14 +425,19 @@ pub fn get_workspace(state: State<'_, WorkspaceState>) -> Result<Option<Workspac
         .map_err(|_| "Workspace state is unavailable.".to_string())?
         .clone();
 
-    Ok(root.map(|path| workspace_summary(&path)))
+    let Some(root) = root else {
+        return Ok(None);
+    };
+
+    let summary = with_workspace_index(&state, false, |index| {
+        workspace_summary_from_index(&root, index)
+    })?;
+    Ok(Some(summary))
 }
 
 #[tauri::command]
 pub fn list_workspace(state: State<'_, WorkspaceState>) -> Result<Vec<WorkspaceEntry>, String> {
-    let root = workspace_root(&state)?;
-    let (entries, _, _, _) = scan_workspace(&root);
-    Ok(entries)
+    with_workspace_index(&state, false, |index| index.entries.clone())
 }
 
 #[tauri::command]
@@ -511,9 +455,8 @@ pub fn search_workspace(
     max_results: Option<usize>,
     state: State<'_, WorkspaceState>,
 ) -> Result<Vec<SearchHit>, String> {
-    let root = workspace_root(&state)?;
     let limit = max_results.unwrap_or(80).clamp(1, 200);
-    Ok(search_root(&root, &query, limit))
+    with_workspace_index(&state, false, |index| index.search(&query, limit))
 }
 
 #[tauri::command]
@@ -522,8 +465,10 @@ pub fn build_workspace_context(
     active_file: Option<String>,
     state: State<'_, WorkspaceState>,
 ) -> Result<String, String> {
-    let root = workspace_root(&state)?;
-    Ok(build_context(&root, &query, active_file.as_deref()))
+    let root = refresh_workspace_index(&state, false)?;
+    with_workspace_index(&state, false, |index| {
+        build_context(&root, index, &query, active_file.as_deref())
+    })
 }
 
 #[cfg(test)]
