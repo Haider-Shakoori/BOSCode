@@ -431,7 +431,7 @@ fn candidate_kind(content: &str) -> &'static str {
 }
 
 fn should_auto_capture(content: &str) -> bool {
-    let lower = content.to_ascii_lowercase();
+    let lower = content.trim().to_ascii_lowercase();
 
     if lower.contains("forget ")
         || lower.contains("don't remember")
@@ -440,21 +440,46 @@ fn should_auto_capture(content: &str) -> bool {
         return false;
     }
 
-    [
+    let explicit_prefixes = [
         "remember ",
         "remember that",
+        "please remember",
         "from now on",
         "i prefer",
         "my preference",
         "always ",
         "never ",
+    ];
+
+    if explicit_prefixes
+        .iter()
+        .any(|signal| lower.starts_with(signal))
+    {
+        return true;
+    }
+
+    let project_scope = [
         "for this project",
         "for this repo",
         "for this repository",
         "for this workspace",
     ]
     .iter()
-    .any(|signal| lower.contains(signal))
+    .any(|signal| lower.contains(signal));
+
+    let directive = [
+        " use ",
+        " keep ",
+        " don't ",
+        " do not ",
+        " always ",
+        " never ",
+        " prefer ",
+    ]
+    .iter()
+    .any(|signal| lower.contains(signal));
+
+    project_scope && directive
 }
 
 #[tauri::command]
@@ -796,6 +821,7 @@ mod tests {
         ));
         assert!(should_auto_capture("Remember that I prefer Tailwind."));
         assert!(!should_auto_capture("How does Tailwind work?"));
+        assert!(!should_auto_capture("Why does this always fail?"));
         assert!(!should_auto_capture("Forget that preference."));
     }
 
