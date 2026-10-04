@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import ProviderSettings from "./ProviderSettings";
 import ChatWorkspace from "./ChatWorkspace";
+import WorkspacePanel, { type WorkspaceEntry, type WorkspaceFile, type WorkspaceSummary } from "./WorkspacePanel";
 
 type NavItem = { icon: string; label: string; badge?: string };
 
@@ -21,11 +23,6 @@ const sessions = [
 ];
 
 
-const files = [
-  { path: "app/Models/Sale.php", type: "M", tone: "orange" },
-  { path: "app/Models/Invoice.php", type: "M", tone: "orange" },
-  { path: "tests/Feature/CheckoutTest.php", type: "A", tone: "green" },
-];
 
 function BrandMark() {
   return (
@@ -42,11 +39,44 @@ export default function App() {
   const [provider, setProvider] = useState("Big Pickle");
   const [notice, setNotice] = useState("Foundation ready");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [workspace, setWorkspace] = useState<WorkspaceSummary | null>(null);
+  const [workspaceEntries, setWorkspaceEntries] = useState<WorkspaceEntry[]>([]);
+  const [activeFile, setActiveFile] = useState<WorkspaceFile | null>(null);
 
-  const stats = useMemo(
-    () => [["3", "files changed"], ["143", "tests passing"], ["12.34s", "last run"]],
-    [],
-  );
+
+  useEffect(() => {
+    const savedPath = localStorage.getItem("boscode.workspace.path");
+    if (!savedPath) return;
+
+    let cancelled = false;
+
+    const restoreWorkspace = async () => {
+      try {
+        const summary = await invoke<WorkspaceSummary>("set_workspace", { path: savedPath });
+        const entries = await invoke<WorkspaceEntry[]>("list_workspace");
+        if (!cancelled) {
+          setWorkspace(summary);
+          setWorkspaceEntries(entries);
+          setNotice(`Workspace restored: ${summary.name}`);
+        }
+      } catch {
+        localStorage.removeItem("boscode.workspace.path");
+      }
+    };
+
+    void restoreWorkspace();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleWorkspaceChange = (summary: WorkspaceSummary, entries: WorkspaceEntry[]) => {
+    setWorkspace(summary);
+    setWorkspaceEntries(entries);
+    setActiveFile(null);
+    setActiveNav("Explorer");
+  };
+
 
 
   return (
@@ -57,12 +87,16 @@ export default function App() {
           <strong>BOSCode</strong>
           <span>AI Coding Agent by BusinessOS</span>
         </div>
-        <div className="workspace-pill">
+        <button
+          className="workspace-pill"
+          onClick={() => setActiveNav("Explorer")}
+          title={workspace?.root ?? "Open a workspace from the Explorer panel"}
+        >
           <span className="status-dot" />
-          <span>POS System</span>
-          <small>main</small>
+          <span>{workspace?.name ?? "No workspace"}</span>
+          <small>{workspace?.branch ?? "local"}</small>
           <span>⌄</span>
-        </div>
+        </button>
         <div className="window-actions" aria-label="Workspace actions">
           <button title="Command palette">⌘</button>
           <button title="Notifications">◌</button>
@@ -140,6 +174,8 @@ export default function App() {
             onProviderChange={setProvider}
             onNotice={setNotice}
             onOpenSettings={() => setSettingsOpen(true)}
+            workspace={workspace}
+            activeFile={activeFile}
           />
 
           <section className="terminal-panel">
@@ -158,59 +194,15 @@ export default function App() {
           </section>
         </section>
 
-        <aside className="right-panel">
-          <div className="changes-header">
-            <div><strong>Changes</strong><span>(3 files)</span></div>
-            <div>
-              <button className="primary" onClick={() => setNotice("All changes approved")}>Apply All</button>
-              <button onClick={() => setNotice("Changes rejected")}>Reject</button>
-            </div>
-          </div>
-
-          <div className="file-change-list">
-            {files.map((file) => (
-              <button key={file.path}>
-                <span className={`file-state ${file.tone}`}>{file.type}</span>
-                <span>{file.path}</span>
-              </button>
-            ))}
-          </div>
-
-          <section className="diff-card">
-            <div className="diff-title">
-              <span><b>M</b> app/Models/Sale.php</span>
-              <span className="diff-stat">+24 <i>-12</i></span>
-            </div>
-            <div className="diff-grid">
-              <div className="code before">
-                <span>145</span><code>public function calculateTotal()</code>
-                <span>146</span><code>{"{"}</code>
-                <span>147</span><code>$subtotal = $this-&gt;subtotal;</code>
-                <span>148</span><code className="removed">$tax = $subtotal * $this-&gt;tax;</code>
-                <span>149</span><code className="removed">$total = $subtotal + $tax;</code>
-                <span>150</span><code>return $total;</code>
-              </div>
-              <div className="code after">
-                <span>145</span><code>public function calculateTotal()</code>
-                <span>146</span><code>{"{"}</code>
-                <span>147</span><code>$subtotal = $this-&gt;subtotal;</code>
-                <span>148</span><code className="added">$tax = round($subtotal * $this-&gt;tax, 3);</code>
-                <span>149</span><code className="added">$total = round($subtotal + $tax, 3);</code>
-                <span>150</span><code>return $total;</code>
-              </div>
-            </div>
-            <div className="diff-footer"><button className="active">Side by Side</button><button>Unified</button><button>View File</button></div>
-          </section>
-
-          <section className="insight-card">
-            <div className="insight-heading"><span>Run health</span><strong>Ready</strong></div>
-            <div className="stat-row">
-              {stats.map(([value, label]) => (
-                <div key={label}><strong>{value}</strong><span>{label}</span></div>
-              ))}
-            </div>
-          </section>
-        </aside>
+        <WorkspacePanel
+          workspace={workspace}
+          entries={workspaceEntries}
+          activeFile={activeFile}
+          onWorkspaceChange={handleWorkspaceChange}
+          onFileOpen={setActiveFile}
+          onNotice={setNotice}
+          mode={activeNav === "Search" ? "search" : activeNav === "Explorer" ? "files" : null}
+        />
       </section>
 
       {settingsOpen && (
@@ -224,7 +216,7 @@ export default function App() {
 
       <footer className="statusbar">
         <span><i className="status-dot" /> {notice}</span>
-        <span>⑂ main</span><span>UTF-8</span><span>Spaces: 2</span><span>BOSCode 0.1.0</span>
+        <span>⑂ {workspace?.branch ?? "no workspace"}</span><span>UTF-8</span><span>Spaces: 2</span><span>BOSCode 0.1.0</span>
       </footer>
     </main>
   );
