@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export type WorkspaceSummary = {
   root: string;
@@ -39,6 +39,7 @@ type WorkspacePanelProps = {
   onWorkspaceChange: (workspace: WorkspaceSummary, entries: WorkspaceEntry[]) => void;
   onFileOpen: (file: WorkspaceFile) => void;
   onNotice: (message: string) => void;
+  mode: "files" | "search" | null;
 };
 
 const formatSize = (bytes: number | null) => {
@@ -55,6 +56,7 @@ export default function WorkspacePanel({
   onWorkspaceChange,
   onFileOpen,
   onNotice,
+  mode,
 }: WorkspacePanelProps) {
   const [tab, setTab] = useState<"files" | "search" | "preview">("files");
   const [query, setQuery] = useState("");
@@ -63,6 +65,10 @@ export default function WorkspacePanel({
   const [error, setError] = useState("");
 
   const visibleEntries = useMemo(() => entries.slice(0, 2500), [entries]);
+
+  useEffect(() => {
+    if (mode) setTab(mode);
+  }, [mode]);
 
   const chooseWorkspace = async () => {
     setBusy("open");
