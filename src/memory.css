@@ -297,3 +297,47 @@
   border-color: rgba(255, 100, 117, .14) !important;
   background: rgba(255, 100, 117, .035) !important;
 }
+
+
+.memory-master-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  padding: 7px;
+  border-bottom: 1px solid var(--line);
+}
+
+.memory-master-controls label {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 18px minmax(0,1fr);
+  gap: 5px;
+  align-items: start;
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(255,255,255,.016);
+  cursor: pointer;
+}
+
+.memory-master-controls input {
+  margin: 1px 0 0;
+  accent-color: #2b88ff;
+}
+
+.memory-master-controls label > span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.memory-master-controls strong {
+  color: #9fb0c6;
+  font-size: 7.8px;
+}
+
+.memory-master-controls small {
+  color: #62728a;
+  font-size: 6.8px;
+  line-height: 1.35;
+}
