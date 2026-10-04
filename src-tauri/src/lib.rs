@@ -1,3 +1,4 @@
+mod git;
 mod terminal;
 mod changes;
 mod workspace;
@@ -360,6 +361,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(workspace::WorkspaceState::default())
+        .manage(git::GitState::default())
         .manage(terminal::CommandState::default())
         .manage(changes::ChangeState::default())
         .invoke_handler(tauri::generate_handler![
@@ -385,6 +387,18 @@ pub fn run() {
             terminal::cancel_command,
             terminal::command_history,
             terminal::latest_command_context,
+            git::git_snapshot,
+            git::list_git_action_proposals,
+            git::propose_git_stage,
+            git::propose_git_unstage,
+            git::propose_git_commit,
+            git::propose_git_create_branch,
+            git::propose_git_switch_branch,
+            git::propose_git_pull,
+            git::propose_git_push,
+            git::propose_github_pull_request,
+            git::reject_git_action,
+            git::execute_git_action,
             save_provider_secret,
             provider_secret_exists,
             delete_provider_secret,
