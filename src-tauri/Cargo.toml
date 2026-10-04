@@ -26,3 +26,4 @@ similar = "2"
 
 tokio = { version = "1", features = ["process", "io-util", "sync", "rt-multi-thread", "macros"] }
 shell-words = "1.1"
+which = "8"
