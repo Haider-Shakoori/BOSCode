@@ -190,7 +190,7 @@ fn windows_batch_command(path: &Path, args: &[String]) -> Result<String, String>
     Ok(parts.join(" "))
 }
 
-fn command_line(executable: &str, args: &[String]) -> String {
+fn render_command_line(executable: &str, args: &[String]) -> String {
     std::iter::once(executable)
         .chain(args.iter().map(String::as_str))
         .map(shell_words::quote)
@@ -326,7 +326,7 @@ pub fn propose_command(
 
     let proposal = CommandProposal {
         id: next_id("cmd", &state),
-        command_line: command_line(&executable, &args),
+        command_line: render_command_line(&executable, &args),
         executable,
         args,
         label: label
@@ -619,7 +619,7 @@ pub fn cancel_command(
 
 #[cfg(test)]
 mod tests {
-    use super::{command_line, parse_command_line};
+    use super::{parse_command_line, render_command_line};
 
     #[test]
     fn parses_arguments_without_invoking_a_shell() {
@@ -645,7 +645,7 @@ mod tests {
     #[test]
     fn renders_canonical_command_line() {
         assert_eq!(
-            command_line("npm", &["run".into(), "build".into()]),
+            render_command_line("npm", &["run".into(), "build".into()]),
             "npm run build"
         );
     }
