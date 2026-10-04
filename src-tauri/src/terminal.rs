@@ -121,7 +121,7 @@ fn parse_command_line(command_line: &str) -> Result<(String, Vec<String>), Strin
         .cloned()
         .ok_or_else(|| "Command cannot be empty.".to_string())?;
 
-    if executable.contains('/') || executable.contains('\\') {
+    if executable.contains('/') || executable.contains('\\') || executable.contains(':') {
         return Err(
             "Run executables by name only. BOSCode does not approve arbitrary executable paths."
                 .to_string(),
