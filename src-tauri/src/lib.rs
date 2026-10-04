@@ -1,6 +1,6 @@
+mod changes;
 mod git;
 mod terminal;
-mod changes;
 mod workspace;
 
 use futures_util::StreamExt;
@@ -38,9 +38,9 @@ enum ChatStreamEvent {
 fn validate_provider_id(provider_id: &str) -> Result<(), String> {
     let valid = !provider_id.is_empty()
         && provider_id.len() <= 80
-        && provider_id
-            .chars()
-            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | '.'));
+        && provider_id.chars().all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | '.')
+        });
 
     if valid {
         Ok(())
@@ -59,7 +59,9 @@ fn read_provider_secret(provider_id: &str) -> Result<Option<String>, String> {
     match provider_entry(provider_id)?.get_password() {
         Ok(secret) => Ok(Some(secret)),
         Err(KeyringError::NoEntry) => Ok(None),
-        Err(error) => Err(format!("Unable to read the secure credential store: {error}")),
+        Err(error) => Err(format!(
+            "Unable to read the secure credential store: {error}"
+        )),
     }
 }
 
@@ -337,9 +339,7 @@ async fn stream_chat(
                         .send(ChatStreamEvent::Delta {
                             content: content.to_string(),
                         })
-                        .map_err(|error| {
-                            format!("Unable to stream to the BOSCode UI: {error}")
-                        })?;
+                        .map_err(|error| format!("Unable to stream to the BOSCode UI: {error}"))?;
                 }
             }
         }
@@ -359,6 +359,13 @@ async fn stream_chat(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .max_file_size(2_000_000)
+                .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepOne)
+                .build(),
+        )
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .manage(workspace::WorkspaceState::default())
         .manage(git::GitState::default())

@@ -14,9 +14,9 @@ permissions:
 
 jobs:
   windows-build:
-    name: Windows • TypeScript + Tauri
+    name: Windows • Production Regression
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
@@ -29,15 +29,29 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
 
       - name: Install frontend dependencies
         run: npm install
 
+      - name: Verify release version consistency
+        run: npm run version:check
+
       - name: Typecheck and build frontend
         run: npm run build
+
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
 
       - name: Check Tauri backend
         run: cargo check --manifest-path src-tauri/Cargo.toml
 
+      - name: Run Clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+
       - name: Test Tauri backend
         run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: Smoke-build Windows NSIS installer
+        run: npm run tauri build -- --bundles nsis

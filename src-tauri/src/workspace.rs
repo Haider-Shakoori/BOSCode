@@ -61,7 +61,11 @@ fn ignored_entry(entry: &DirEntry) -> bool {
     }
 
     matches!(
-        entry.file_name().to_string_lossy().to_ascii_lowercase().as_str(),
+        entry
+            .file_name()
+            .to_string_lossy()
+            .to_ascii_lowercase()
+            .as_str(),
         ".git"
             | "node_modules"
             | "target"
@@ -274,8 +278,8 @@ fn workspace_summary(root: &Path) -> WorkspaceSummary {
 
 fn read_text_file(root: &Path, relative_path: &str) -> Result<WorkspaceFile, String> {
     let path = resolve_workspace_path(root, relative_path)?;
-    let metadata = fs::metadata(&path)
-        .map_err(|error| format!("Unable to inspect file metadata: {error}"))?;
+    let metadata =
+        fs::metadata(&path).map_err(|error| format!("Unable to inspect file metadata: {error}"))?;
 
     if !metadata.is_file() {
         return Err("The selected path is not a file.".to_string());
@@ -475,9 +479,7 @@ pub fn set_workspace(
 }
 
 #[tauri::command]
-pub fn get_workspace(
-    state: State<'_, WorkspaceState>,
-) -> Result<Option<WorkspaceSummary>, String> {
+pub fn get_workspace(state: State<'_, WorkspaceState>) -> Result<Option<WorkspaceSummary>, String> {
     let root = state
         .root
         .lock()
@@ -488,9 +490,7 @@ pub fn get_workspace(
 }
 
 #[tauri::command]
-pub fn list_workspace(
-    state: State<'_, WorkspaceState>,
-) -> Result<Vec<WorkspaceEntry>, String> {
+pub fn list_workspace(state: State<'_, WorkspaceState>) -> Result<Vec<WorkspaceEntry>, String> {
     let root = workspace_root(&state)?;
     let (entries, _, _, _) = scan_workspace(&root);
     Ok(entries)
@@ -526,7 +526,6 @@ pub fn build_workspace_context(
     Ok(build_context(&root, &query, active_file.as_deref()))
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::{context_tokens, is_sensitive_path};
@@ -552,7 +551,10 @@ mod tests {
         assert!(tokens.contains(&"rounding".to_string()));
         assert!(tokens.contains(&"invoice".to_string()));
         assert_eq!(
-            tokens.iter().filter(|token| token.as_str() == "checkout").count(),
+            tokens
+                .iter()
+                .filter(|token| token.as_str() == "checkout")
+                .count(),
             1
         );
         assert!(tokens.len() <= 12);

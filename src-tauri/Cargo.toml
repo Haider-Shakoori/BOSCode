@@ -1,6 +1,6 @@
 [package]
 name = "boscode"
-version = "0.1.0"
+version = "1.0.0"
 description = "BOSCode — AI Coding Agent by BusinessOS"
 authors = ["BusinessOS"]
 edition = "2021"
@@ -27,3 +27,6 @@ similar = "2"
 tokio = { version = "1", features = ["process", "io-util", "sync", "rt-multi-thread", "macros"] }
 shell-words = "1.1"
 which = "8"
+
+tauri-plugin-updater = "2.12"
+tauri-plugin-log = "2"
