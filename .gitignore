@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.vite/
+*.log
+.env
+.env.*
+!.env.example
+src-tauri/target/
+target/
+src-tauri/gen/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
