@@ -6,6 +6,7 @@ import ChangesPanel from "./ChangesPanel";
 import TerminalPanel from "./TerminalPanel";
 import GitPanel from "./GitPanel";
 import UpdateCenter from "./UpdateCenter";
+import MemoryPanel from "./MemoryPanel";
 import WorkspacePanel, { type WorkspaceEntry, type WorkspaceFile, type WorkspaceSummary } from "./WorkspacePanel";
 
 type NavItem = { icon: string; label: string; badge?: string };
@@ -17,6 +18,7 @@ const navItems: NavItem[] = [
   { icon: "⑂", label: "Source Control", badge: "3" },
   { icon: "›_", label: "Terminal" },
   { icon: "✓", label: "Tasks", badge: "2" },
+  { icon: "◎", label: "Memory" },
 ];
 
 const sessions = [
@@ -229,7 +231,12 @@ export default function App() {
           )}
         </section>
 
-        {activeNav === "Source Control" ? (
+        {activeNav === "Memory" ? (
+          <MemoryPanel
+            workspace={workspace}
+            onNotice={setNotice}
+          />
+        ) : activeNav === "Source Control" ? (
           <ChangesPanel
             workspace={workspace}
             refreshToken={changesRefreshToken}
