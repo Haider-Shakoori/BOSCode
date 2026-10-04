@@ -47,7 +47,8 @@
       },
       "wix": {
         "language": "en-US"
-      }
+      },
+      "allowDowngrades": false
     }
   },
   "plugins": {
