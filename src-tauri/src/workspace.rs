@@ -5,7 +5,11 @@ use serde::Serialize;
 use std::{
     fs,
     path::{Component, Path, PathBuf},
-    sync::Mutex,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
+    thread,
 };
 use tauri::State;
 use walkdir::DirEntry;
@@ -17,8 +21,9 @@ const INDEX_REFRESH_SECONDS: u64 = 2;
 
 #[derive(Default)]
 pub struct WorkspaceState {
-    root: Mutex<Option<PathBuf>>,
-    index: Mutex<Option<WorkspaceIndex>>,
+    root: Arc<Mutex<Option<PathBuf>>>,
+    index: Arc<Mutex<Option<WorkspaceIndex>>>,
+    refreshing: Arc<AtomicBool>,
 }
 
 #[derive(Clone, Serialize)]
@@ -233,23 +238,60 @@ fn refresh_workspace_index(
     force: bool,
 ) -> Result<PathBuf, String> {
     let root = workspace_root(state)?;
-    let mut guard = state
+    let previous = state
         .index
         .lock()
-        .map_err(|_| "Workspace index is unavailable.".to_string())?;
+        .map_err(|_| "Workspace index is unavailable.".to_string())?
+        .clone();
 
-    let should_refresh = force
-        || guard
-            .as_ref()
-            .map(|index| {
-                index.root != root
-                    || now_seconds().saturating_sub(index.built_at) >= INDEX_REFRESH_SECONDS
-            })
-            .unwrap_or(true);
+    let needs_initial_build = previous
+        .as_ref()
+        .map(|index| index.root != root)
+        .unwrap_or(true);
 
-    if should_refresh {
-        let next = WorkspaceIndex::build(&root, guard.as_ref());
+    if force || needs_initial_build {
+        let next = WorkspaceIndex::build(&root, previous.as_ref());
+        let mut guard = state
+            .index
+            .lock()
+            .map_err(|_| "Workspace index is unavailable.".to_string())?;
         *guard = Some(next);
+        state.refreshing.store(false, Ordering::Release);
+        return Ok(root);
+    }
+
+    let stale = previous
+        .as_ref()
+        .map(|index| now_seconds().saturating_sub(index.built_at) >= INDEX_REFRESH_SECONDS)
+        .unwrap_or(false);
+
+    if stale
+        && state
+            .refreshing
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_ok()
+    {
+        let root_for_thread = root.clone();
+        let index_state = Arc::clone(&state.index);
+        let refreshing = Arc::clone(&state.refreshing);
+
+        thread::spawn(move || {
+            let previous = index_state.lock().ok().and_then(|guard| guard.clone());
+            let next = WorkspaceIndex::build(&root_for_thread, previous.as_ref());
+
+            if let Ok(mut guard) = index_state.lock() {
+                let same_workspace = guard
+                    .as_ref()
+                    .map(|index| index.root == root_for_thread)
+                    .unwrap_or(true);
+
+                if same_workspace {
+                    *guard = Some(next);
+                }
+            }
+
+            refreshing.store(false, Ordering::Release);
+        });
     }
 
     Ok(root)
@@ -413,6 +455,7 @@ pub fn set_workspace(
             .map_err(|_| "Workspace index is unavailable.".to_string())?;
         *index = Some(next_index);
     }
+    state.refreshing.store(false, Ordering::Release);
 
     Ok(summary)
 }
