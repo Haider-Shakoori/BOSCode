@@ -518,6 +518,94 @@ pub fn save_session_messages(
     read_session_summary(connection, &session_id)
 }
 
+
+#[tauri::command]
+pub fn build_session_context(
+    id: String,
+    max_chars: Option<usize>,
+    state: State<'_, HistoryState>,
+) -> Result<String, String> {
+    let budget = max_chars.unwrap_or(24_000).clamp(2_000, 64_000);
+
+    with_connection(&state, |connection| {
+        let session = read_session_summary(connection, &id)?;
+
+        let mut statement = connection
+            .prepare(
+                "
+                SELECT role, content
+                FROM session_messages
+                WHERE session_id = ?1
+                ORDER BY ordinal DESC
+                LIMIT 120
+                ",
+            )
+            .map_err(|error| format!("Unable to prepare session context: {error}"))?;
+
+        let rows = statement
+            .query_map(params![id], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                ))
+            })
+            .map_err(|error| format!("Unable to read session context: {error}"))?;
+
+        let mut recent = rows
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| format!("Unable to decode session context: {error}"))?;
+
+        let mut output = String::new();
+        output.push_str("BOSCode session history context\n");
+        output.push_str(&format!("Session: {}\n", session.title));
+
+        if let Some(workspace) = &session.workspace {
+            output.push_str(&format!("Workspace: {workspace}\n"));
+        }
+
+        if let Some(summary) = &session.summary {
+            output.push_str("Earlier session summary:\n");
+            output.push_str(summary);
+            output.push_str("\n\n");
+        }
+
+        let header_chars = output.chars().count();
+        if header_chars >= budget {
+            return Ok(output.chars().take(budget).collect());
+        }
+
+        let available = budget.saturating_sub(header_chars);
+        let mut selected = Vec::new();
+        let mut used = 0usize;
+
+        for (role, content) in recent.drain(..) {
+            let line = format!("{}: {}\n", role, content);
+            let chars = line.chars().count();
+
+            if used + chars > available && !selected.is_empty() {
+                break;
+            }
+
+            used += chars;
+            selected.push(line);
+
+            if used >= available {
+                break;
+            }
+        }
+
+        selected.reverse();
+        if !selected.is_empty() {
+            output.push_str("Recent messages:\n");
+            for line in selected {
+                output.push_str(&line);
+            }
+        }
+
+        Ok(output.chars().take(budget).collect())
+    })
+}
+
 #[tauri::command]
 pub fn rename_session(
     id: String,
@@ -602,6 +690,13 @@ mod tests {
     fn title_length_is_bounded() {
         let title = normalize_title(&"a".repeat(200));
         assert!(title.chars().count() <= 90);
+    }
+
+    #[test]
+    fn derives_title_without_unbounded_prompt_growth() {
+        let title = derive_title(&("Fix the checkout flow ".repeat(20)));
+        assert!(title.chars().count() <= 90);
+        assert!(title.starts_with("Fix the checkout flow"));
     }
 
     #[test]
