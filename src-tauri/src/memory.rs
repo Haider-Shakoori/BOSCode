@@ -63,8 +63,8 @@ impl MemoryState {
             .map_err(|error| format!("Unable to create BOSCode data directory: {error}"))?;
 
         let path = app_data_dir.join("boscode-memory.sqlite3");
-        let connection =
-            Connection::open(path).map_err(|error| format!("Unable to open memory database: {error}"))?;
+        let connection = Connection::open(path)
+            .map_err(|error| format!("Unable to open memory database: {error}"))?;
 
         connection
             .execute_batch(
@@ -340,10 +340,7 @@ fn relevance_score(item: &MemoryItem, tokens: &[String], workspace: Option<&str>
         score += 30;
     }
 
-    if item.scope == "workspace"
-        && workspace.is_some()
-        && item.workspace.as_deref() == workspace
-    {
+    if item.scope == "workspace" && workspace.is_some() && item.workspace.as_deref() == workspace {
         score += 20;
     }
 
@@ -375,7 +372,10 @@ fn candidate_scope(content: &str, workspace: Option<&str>) -> (&'static str, Opt
         "for this app",
     ];
 
-    if workspace_signals.iter().any(|signal| lower.contains(signal)) {
+    if workspace_signals
+        .iter()
+        .any(|signal| lower.contains(signal))
+    {
         if let Some(workspace) = workspace {
             return ("workspace", Some(workspace.to_string()));
         }
@@ -541,7 +541,9 @@ pub fn update_memory(
         };
 
         if looks_sensitive(&content) {
-            return Err("BOSCode will not save likely credentials or secrets to memory.".to_string());
+            return Err(
+                "BOSCode will not save likely credentials or secrets to memory.".to_string(),
+            );
         }
 
         let kind = kind.unwrap_or(current.kind.clone());
@@ -562,8 +564,16 @@ pub fn update_memory(
                     id,
                     content,
                     kind,
-                    if pinned.unwrap_or(current.pinned) { 1 } else { 0 },
-                    if enabled.unwrap_or(current.enabled) { 1 } else { 0 },
+                    if pinned.unwrap_or(current.pinned) {
+                        1
+                    } else {
+                        0
+                    },
+                    if enabled.unwrap_or(current.enabled) {
+                        1
+                    } else {
+                        0
+                    },
                     now()
                 ],
             )
@@ -710,7 +720,11 @@ pub fn build_memory_context(
 
         let selected = items
             .into_iter()
-            .filter(|item| item.pinned || tokens.is_empty() || relevance_score(item, &tokens, workspace.as_deref()) > 0)
+            .filter(|item| {
+                item.pinned
+                    || tokens.is_empty()
+                    || relevance_score(item, &tokens, workspace.as_deref()) > 0
+            })
             .take(MAX_CONTEXT_ITEMS)
             .collect::<Vec<_>>();
 
@@ -754,11 +768,15 @@ pub fn build_memory_context(
 
 #[cfg(test)]
 mod tests {
-    use super::{candidate_kind, candidate_scope, looks_sensitive, query_tokens, should_auto_capture};
+    use super::{
+        candidate_kind, candidate_scope, looks_sensitive, query_tokens, should_auto_capture,
+    };
 
     #[test]
     fn detects_memory_intent() {
-        assert!(should_auto_capture("From now on always run tests before merging."));
+        assert!(should_auto_capture(
+            "From now on always run tests before merging."
+        ));
         assert!(should_auto_capture("Remember that I prefer Tailwind."));
         assert!(!should_auto_capture("How does Tailwind work?"));
         assert!(!should_auto_capture("Forget that preference."));

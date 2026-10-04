@@ -1,6 +1,6 @@
-mod memory;
 mod changes;
 mod git;
+mod memory;
 mod terminal;
 mod workspace;
 
