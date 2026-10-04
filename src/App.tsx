@@ -25,6 +25,25 @@ const sessions = [
 
 
 function BrandMark() {
+  return (
+    <div className="brand-mark" aria-hidden="true">
+      <span />
+      <span />
+    </div>
+  );
+}
+
+export default function App() {
+  const [activeNav, setActiveNav] = useState("Chat");
+  const [activeTab, setActiveTab] = useState("Chat");
+  const [provider, setProvider] = useState("Big Pickle");
+  const [notice, setNotice] = useState("Foundation ready");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [workspace, setWorkspace] = useState<WorkspaceSummary | null>(null);
+  const [workspaceEntries, setWorkspaceEntries] = useState<WorkspaceEntry[]>([]);
+  const [activeFile, setActiveFile] = useState<WorkspaceFile | null>(null);
+
+
   useEffect(() => {
     const savedPath = localStorage.getItem("boscode.workspace.path");
     if (!savedPath) return;
@@ -57,24 +76,6 @@ function BrandMark() {
     setActiveFile(null);
     setActiveNav("Explorer");
   };
-
-  return (
-    <div className="brand-mark" aria-hidden="true">
-      <span />
-      <span />
-    </div>
-  );
-}
-
-export default function App() {
-  const [activeNav, setActiveNav] = useState("Chat");
-  const [activeTab, setActiveTab] = useState("Chat");
-  const [provider, setProvider] = useState("Big Pickle");
-  const [notice, setNotice] = useState("Foundation ready");
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [workspace, setWorkspace] = useState<WorkspaceSummary | null>(null);
-  const [workspaceEntries, setWorkspaceEntries] = useState<WorkspaceEntry[]>([]);
-  const [activeFile, setActiveFile] = useState<WorkspaceFile | null>(null);
 
 
 
