@@ -1,7 +1,9 @@
+use futures_util::StreamExt;
 use keyring::{Entry, Error as KeyringError};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::time::{Duration, Instant};
+use tauri::ipc::Channel;
 
 const PROVIDER_SERVICE: &str = "BOSCode AI Providers";
 
@@ -12,6 +14,20 @@ struct ProviderTestResult {
     status: u16,
     latency_ms: u64,
     message: String,
+}
+
+#[derive(Deserialize)]
+struct ChatMessage {
+    role: String,
+    content: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+enum ChatStreamEvent {
+    Started { model: String },
+    Delta { content: String },
+    Completed,
 }
 
 fn validate_provider_id(provider_id: &str) -> Result<(), String> {
@@ -34,6 +50,14 @@ fn provider_entry(provider_id: &str) -> Result<Entry, String> {
         .map_err(|error| format!("Unable to open the secure credential store: {error}"))
 }
 
+fn read_provider_secret(provider_id: &str) -> Result<Option<String>, String> {
+    match provider_entry(provider_id)?.get_password() {
+        Ok(secret) => Ok(Some(secret)),
+        Err(KeyringError::NoEntry) => Ok(None),
+        Err(error) => Err(format!("Unable to read the secure credential store: {error}")),
+    }
+}
+
 fn provider_error_message(body: &str) -> String {
     let parsed = serde_json::from_str::<Value>(body).ok();
 
@@ -52,6 +76,45 @@ fn provider_error_message(body: &str) -> String {
     } else {
         compact.chars().take(240).collect()
     }
+}
+
+fn chat_endpoint(base_url: &str) -> Result<reqwest::Url, String> {
+    let base_url = base_url.trim().trim_end_matches('/');
+
+    if base_url.is_empty() {
+        return Err("API Base URL is required.".to_string());
+    }
+
+    let parsed_url = reqwest::Url::parse(&format!("{base_url}/chat/completions"))
+        .map_err(|_| "API Base URL is not a valid URL.".to_string())?;
+
+    if !matches!(parsed_url.scheme(), "http" | "https") {
+        return Err("API Base URL must use http or https.".to_string());
+    }
+
+    Ok(parsed_url)
+}
+
+fn validate_messages(messages: &[ChatMessage]) -> Result<(), String> {
+    if messages.is_empty() {
+        return Err("Conversation cannot be empty.".to_string());
+    }
+
+    if messages.len() > 200 {
+        return Err("Conversation is too large for a single request.".to_string());
+    }
+
+    for message in messages {
+        if !matches!(message.role.as_str(), "user" | "assistant" | "system") {
+            return Err("Conversation contains an unsupported message role.".to_string());
+        }
+
+        if message.content.len() > 200_000 {
+            return Err("A conversation message is too large.".to_string());
+        }
+    }
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -74,11 +137,7 @@ fn save_provider_secret(provider_id: String, secret: String) -> Result<(), Strin
 
 #[tauri::command]
 fn provider_secret_exists(provider_id: String) -> Result<bool, String> {
-    match provider_entry(&provider_id)?.get_password() {
-        Ok(_) => Ok(true),
-        Err(KeyringError::NoEntry) => Ok(false),
-        Err(error) => Err(format!("Unable to read the secure credential store: {error}")),
-    }
+    Ok(read_provider_secret(&provider_id)?.is_some())
 }
 
 #[tauri::command]
@@ -97,24 +156,11 @@ async fn test_provider_connection(
     api_key: Option<String>,
 ) -> Result<ProviderTestResult, String> {
     validate_provider_id(&provider_id)?;
-
-    let base_url = base_url.trim().trim_end_matches('/');
+    let parsed_url = chat_endpoint(&base_url)?;
     let model = model.trim();
-
-    if base_url.is_empty() {
-        return Err("API Base URL is required.".to_string());
-    }
 
     if model.is_empty() {
         return Err("Model ID is required.".to_string());
-    }
-
-    let endpoint = format!("{base_url}/chat/completions");
-    let parsed_url = reqwest::Url::parse(&endpoint)
-        .map_err(|_| "API Base URL is not a valid URL.".to_string())?;
-
-    if !matches!(parsed_url.scheme(), "http" | "https") {
-        return Err("API Base URL must use http or https.".to_string());
     }
 
     let provided_secret = api_key
@@ -123,21 +169,10 @@ async fn test_provider_connection(
         .filter(|secret| !secret.is_empty())
         .map(ToOwned::to_owned);
 
-    let stored_secret = if provided_secret.is_none() {
-        match provider_entry(&provider_id)?.get_password() {
-            Ok(secret) => Some(secret),
-            Err(KeyringError::NoEntry) => None,
-            Err(error) => {
-                return Err(format!(
-                    "Unable to read the secure credential store: {error}"
-                ))
-            }
-        }
-    } else {
-        None
+    let secret = match provided_secret {
+        Some(secret) => Some(secret),
+        None => read_provider_secret(&provider_id)?,
     };
-
-    let secret = provided_secret.or(stored_secret);
 
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(25))
@@ -188,6 +223,134 @@ async fn test_provider_connection(
     })
 }
 
+#[tauri::command]
+async fn stream_chat(
+    provider_id: String,
+    base_url: String,
+    model: String,
+    messages: Vec<ChatMessage>,
+    on_event: Channel<ChatStreamEvent>,
+) -> Result<(), String> {
+    validate_provider_id(&provider_id)?;
+    validate_messages(&messages)?;
+
+    let model = model.trim();
+    if model.is_empty() {
+        return Err("Model ID is required.".to_string());
+    }
+
+    let endpoint = chat_endpoint(&base_url)?;
+    let secret = read_provider_secret(&provider_id)?;
+
+    let request_messages = messages
+        .iter()
+        .map(|message| {
+            json!({
+                "role": message.role,
+                "content": message.content,
+            })
+        })
+        .collect::<Vec<_>>();
+
+    let payload = json!({
+        "model": model,
+        "messages": request_messages,
+        "stream": true
+    });
+
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(180))
+        .build()
+        .map_err(|error| format!("Unable to initialize the HTTP client: {error}"))?;
+
+    let mut request = client.post(endpoint).json(&payload);
+    if let Some(secret) = secret {
+        request = request.bearer_auth(secret);
+    }
+
+    on_event
+        .send(ChatStreamEvent::Started {
+            model: model.to_string(),
+        })
+        .map_err(|error| format!("Unable to stream to the BOSCode UI: {error}"))?;
+
+    let response = request
+        .send()
+        .await
+        .map_err(|error| format!("Could not reach the provider: {error}"))?;
+
+    let status = response.status();
+    if !status.is_success() {
+        let status_code = status.as_u16();
+        let body = response.text().await.unwrap_or_default();
+        return Err(format!(
+            "Provider returned HTTP {status_code}: {}",
+            provider_error_message(&body)
+        ));
+    }
+
+    let mut stream = response.bytes_stream();
+    let mut buffer = String::new();
+    let mut completed = false;
+
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|error| format!("Provider stream failed: {error}"))?;
+        buffer.push_str(&String::from_utf8_lossy(&chunk));
+
+        while let Some(newline) = buffer.find('\n') {
+            let line = buffer.drain(..=newline).collect::<String>();
+            let line = line.trim();
+
+            if !line.starts_with("data:") {
+                continue;
+            }
+
+            let data = line.trim_start_matches("data:").trim();
+            if data.is_empty() {
+                continue;
+            }
+
+            if data == "[DONE]" {
+                completed = true;
+                break;
+            }
+
+            let value = match serde_json::from_str::<Value>(data) {
+                Ok(value) => value,
+                Err(_) => continue,
+            };
+
+            if let Some(content) = value
+                .get("choices")
+                .and_then(|choices| choices.get(0))
+                .and_then(|choice| choice.get("delta"))
+                .and_then(|delta| delta.get("content"))
+                .and_then(Value::as_str)
+            {
+                if !content.is_empty() {
+                    on_event
+                        .send(ChatStreamEvent::Delta {
+                            content: content.to_string(),
+                        })
+                        .map_err(|error| {
+                            format!("Unable to stream to the BOSCode UI: {error}")
+                        })?;
+                }
+            }
+        }
+
+        if completed {
+            break;
+        }
+    }
+
+    on_event
+        .send(ChatStreamEvent::Completed)
+        .map_err(|error| format!("Unable to finish the BOSCode stream: {error}"))?;
+
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -196,7 +359,8 @@ pub fn run() {
             save_provider_secret,
             provider_secret_exists,
             delete_provider_secret,
-            test_provider_connection
+            test_provider_connection,
+            stream_chat
         ])
         .run(tauri::generate_context!())
         .expect("error while running BOSCode");
