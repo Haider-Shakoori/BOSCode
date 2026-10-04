@@ -796,6 +796,7 @@ pub fn run() {
             save_provider_secret,
             provider_secret_exists,
             delete_provider_secret,
+            opencode_status,
             test_provider_connection,
             stream_chat
         ])
