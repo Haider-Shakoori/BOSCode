@@ -21,6 +21,7 @@ BOSCode is a local-first desktop coding agent designed to understand a repositor
 - [x] Batch 3 — real streaming AI chat and local session history
 - [x] Batch 4 — workspace selection, repository indexing, safe reads, search, and AI context
 - [x] Batch 5 — reviewed file changes, diffs, apply/reject/undo, and write permissions
+- [x] Batch 6 — approved terminal execution, project checks, and AI command-result context
 
 ### Batch 5 — reviewed agent changes
 
@@ -48,10 +49,25 @@ BOSCode is a local-first desktop coding agent designed to understand a repositor
 - [x] Safe Windows .cmd/.bat shim handling for tools such as npm
 - [x] Regression tests for parsing and command safety
 
+### Batch 7 — Git and GitHub workflows
+
+- [x] Git repository status, staged/unstaged/untracked files
+- [x] Branch, upstream, ahead/behind, remotes, and recent commits
+- [x] Approval-gated staging and unstaging
+- [x] Approval-gated commits
+- [x] Approval-gated branch creation and switching
+- [x] Fast-forward-only pull
+- [x] Push and safe upstream setup without force push
+- [x] GitHub remote detection
+- [x] GitHub CLI installation/authentication status
+- [x] Pull request draft assistance from recent repository history
+- [x] Approval-gated GitHub pull request creation through authenticated `gh`
+- [x] Sensitive-file staging and commit protection
+- [x] No force push, hard reset, or branch deletion workflows
+
 ### Remaining roadmap
 
-- [ ] Batch 7 — Git/GitHub workflows, branches, commits, push/pull, and PR assistance
-- [ ] Batch 8 — production hardening, updater, signed installer pipeline, regression suite
+- [ ] Batch 8 — production hardening, updater, installer/release pipeline, and regression suite
 
 ## Local development
 
