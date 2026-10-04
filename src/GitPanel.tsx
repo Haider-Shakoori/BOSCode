@@ -118,11 +118,6 @@ export default function GitPanel({
     () => snapshot.files.filter((file) => file.staged),
     [snapshot.files],
   );
-  const unstagedFiles = useMemo(
-    () => snapshot.files.filter((file) => file.unstaged),
-    [snapshot.files],
-  );
-
   const load = async () => {
     if (!workspace) {
       setSnapshot(blankSnapshot);
