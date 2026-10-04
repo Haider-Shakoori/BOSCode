@@ -49,5 +49,17 @@
         "language": "en-US"
       }
     }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "BOSCODE_UPDATER_PUBKEY",
+      "endpoints": [
+        "https://github.com/Haider-Shakoori/BOSCode/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      },
+      "allowDowngrades": false
+    }
   }
 }
