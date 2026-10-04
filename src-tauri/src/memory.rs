@@ -468,13 +468,7 @@ fn should_auto_capture(content: &str) -> bool {
     .any(|signal| lower.contains(signal));
 
     let directive = [
-        " use ",
-        " keep ",
-        " don't ",
-        " do not ",
-        " always ",
-        " never ",
-        " prefer ",
+        " use ", " keep ", " don't ", " do not ", " always ", " never ", " prefer ",
     ]
     .iter()
     .any(|signal| lower.contains(signal));
