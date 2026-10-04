@@ -1,0 +1,57 @@
+name: Capture BOSCode Real UI
+
+on:
+  push:
+    branches:
+      - "chore/capture-real-ui"
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chore/capture-real-ui
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Install Chromium
+        run: npx --yes playwright@1.55.0 install --with-deps chromium
+
+      - name: Start preview
+        run: |
+          nohup npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/boscode-vite.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:4173 >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/boscode-vite.log
+          exit 1
+
+      - name: Capture screenshot
+        run: |
+          npx --yes playwright@1.55.0 screenshot             --browser chromium             --viewport-size "1440,900"             --full-page             http://127.0.0.1:4173             boscode-real-v1.0.0.png
+
+      - name: Commit screenshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add boscode-real-v1.0.0.png
+          git commit -m "chore: add real BOSCode v1.0.0 screenshot"
+          git push origin HEAD:chore/capture-real-ui
