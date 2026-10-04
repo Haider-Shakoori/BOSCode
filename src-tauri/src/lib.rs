@@ -221,11 +221,7 @@ fn opencode_error_event(value: &Value) -> Option<String> {
         .filter(|error| !error.is_empty())
 }
 
-async fn spawn_opencode(
-    model: &str,
-    prompt: &str,
-    secret: &str,
-) -> Result<Child, String> {
+async fn spawn_opencode(model: &str, prompt: &str, secret: &str) -> Result<Child, String> {
     let binary = opencode_binary()?;
     let mut command = Command::new(binary);
     command
@@ -329,7 +325,10 @@ async fn run_opencode_collect(model: &str, prompt: &str, secret: &str) -> Result
         return Err(if diagnostics.is_empty() {
             format!("OpenCode exited with status {status}.")
         } else {
-            format!("OpenCode failed: {}", diagnostics.chars().take(500).collect::<String>())
+            format!(
+                "OpenCode failed: {}",
+                diagnostics.chars().take(500).collect::<String>()
+            )
         });
     }
 
@@ -425,7 +424,10 @@ async fn stream_opencode_response(
         return Err(if diagnostics.is_empty() {
             format!("OpenCode exited with status {status}.")
         } else {
-            format!("OpenCode failed: {}", diagnostics.chars().take(500).collect::<String>())
+            format!(
+                "OpenCode failed: {}",
+                diagnostics.chars().take(500).collect::<String>()
+            )
         });
     }
 
