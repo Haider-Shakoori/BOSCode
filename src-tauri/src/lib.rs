@@ -133,6 +133,243 @@ fn validate_messages(messages: &[ChatMessage]) -> Result<(), String> {
     Ok(())
 }
 
+fn opencode_binary() -> Result<PathBuf, String> {
+    which::which("opencode").map_err(|_| {
+        "OpenCode CLI is not installed or is not available on PATH. Install OpenCode, then restart BOSCode.".to_string()
+    })
+}
+
+fn normalize_opencode_model(model: &str) -> String {
+    let model = model.trim();
+    if model.contains('/') {
+        model.to_string()
+    } else {
+        format!("opencode/{model}")
+    }
+}
+
+fn opencode_runtime_config() -> String {
+    json!({
+        "permission": {
+            "read": "deny",
+            "edit": "deny",
+            "glob": "deny",
+            "grep": "deny",
+            "list": "deny",
+            "bash": "deny",
+            "task": "deny",
+            "external_directory": "deny",
+            "todowrite": "deny",
+            "webfetch": "deny",
+            "websearch": "deny",
+            "lsp": "deny",
+            "skill": "deny",
+            "question": "deny"
+        }
+    })
+    .to_string()
+}
+
+fn opencode_prompt(messages: &[ChatMessage]) -> String {
+    let mut prompt = String::from(
+        "You are the AI model runtime for BOSCode. The conversation and repository context are supplied below. Do not use tools, edit files, or run commands. Return only the assistant response that BOSCode should display.\n\n",
+    );
+
+    for message in messages {
+        let role = match message.role.as_str() {
+            "system" => "SYSTEM",
+            "assistant" => "ASSISTANT",
+            _ => "USER",
+        };
+        prompt.push_str(role);
+        prompt.push_str(":\n");
+        prompt.push_str(&message.content);
+        prompt.push_str("\n\n");
+    }
+
+    prompt.push_str("ASSISTANT:\n");
+    prompt
+}
+
+fn opencode_text_event(value: &Value) -> Option<&str> {
+    if value.get("type").and_then(Value::as_str) != Some("text") {
+        return None;
+    }
+
+    value
+        .get("part")
+        .and_then(|part| part.get("text"))
+        .and_then(Value::as_str)
+}
+
+fn opencode_error_event(value: &Value) -> Option<String> {
+    if value.get("type").and_then(Value::as_str) != Some("error") {
+        return None;
+    }
+
+    if let Some(message) = value
+        .pointer("/error/data/message")
+        .and_then(Value::as_str)
+        .or_else(|| value.pointer("/error/message").and_then(Value::as_str))
+    {
+        return Some(message.to_string());
+    }
+
+    value
+        .get("error")
+        .map(|error| error.to_string())
+        .filter(|error| !error.is_empty())
+}
+
+async fn spawn_opencode(
+    model: &str,
+    prompt: &str,
+    secret: &str,
+) -> Result<Child, String> {
+    let binary = opencode_binary()?;
+    let mut command = Command::new(binary);
+    command
+        .arg("--pure")
+        .arg("run")
+        .arg("--format")
+        .arg("json")
+        .arg("--model")
+        .arg(model)
+        .arg("--agent")
+        .arg("plan")
+        .env("OPENCODE_API_KEY", secret)
+        .env("OPENCODE_DISABLE_AUTOUPDATE", "true")
+        .env("OPENCODE_DISABLE_TERMINAL_TITLE", "true")
+        .env("OPENCODE_CONFIG_CONTENT", opencode_runtime_config())
+        .env("NO_COLOR", "1")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true);
+
+    let mut child = command
+        .spawn()
+        .map_err(|error| format!("Unable to start OpenCode CLI: {error}"))?;
+
+    let mut stdin = child
+        .stdin
+        .take()
+        .ok_or_else(|| "Unable to open OpenCode input stream.".to_string())?;
+
+    stdin
+        .write_all(prompt.as_bytes())
+        .await
+        .map_err(|error| format!("Unable to send the prompt to OpenCode: {error}"))?;
+    stdin
+        .shutdown()
+        .await
+        .map_err(|error| format!("Unable to finish the OpenCode input stream: {error}"))?;
+
+    Ok(child)
+}
+
+async fn run_opencode_collect(model: &str, prompt: &str, secret: &str) -> Result<String, String> {
+    let mut child = spawn_opencode(model, prompt, secret).await?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "Unable to read OpenCode output.".to_string())?;
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| "Unable to read OpenCode diagnostics.".to_string())?;
+
+    let stderr_task = tokio::spawn(async move {
+        let mut stderr = stderr;
+        let mut diagnostics = String::new();
+        let _ = stderr.read_to_string(&mut diagnostics).await;
+        diagnostics
+    });
+
+    let mut lines = BufReader::new(stdout).lines();
+    let mut answer = String::new();
+    let mut event_error: Option<String> = None;
+
+    while let Some(line) = lines
+        .next_line()
+        .await
+        .map_err(|error| format!("Unable to read OpenCode output: {error}"))?
+    {
+        let Ok(value) = serde_json::from_str::<Value>(&line) else {
+            continue;
+        };
+
+        if let Some(message) = opencode_error_event(&value) {
+            event_error = Some(message);
+            continue;
+        }
+
+        if let Some(text) = opencode_text_event(&value) {
+            if !text.trim().is_empty() {
+                if !answer.is_empty() {
+                    answer.push_str("\n\n");
+                }
+                answer.push_str(text.trim());
+            }
+        }
+    }
+
+    let status = child
+        .wait()
+        .await
+        .map_err(|error| format!("Unable to wait for OpenCode: {error}"))?;
+    let diagnostics = stderr_task.await.unwrap_or_default();
+
+    if let Some(message) = event_error {
+        return Err(format!("OpenCode returned an error: {message}"));
+    }
+
+    if !status.success() {
+        let diagnostics = diagnostics.trim();
+        return Err(if diagnostics.is_empty() {
+            format!("OpenCode exited with status {status}.")
+        } else {
+            format!("OpenCode failed: {}", diagnostics.chars().take(500).collect::<String>())
+        });
+    }
+
+    if answer.trim().is_empty() {
+        return Err("OpenCode completed without returning assistant text.".to_string());
+    }
+
+    Ok(answer)
+}
+
+#[tauri::command]
+async fn opencode_status() -> Result<OpenCodeStatus, String> {
+    let path = match opencode_binary() {
+        Ok(path) => path,
+        Err(_) => {
+            return Ok(OpenCodeStatus {
+                installed: false,
+                path: None,
+                version: None,
+            })
+        }
+    };
+
+    let version = Command::new(&path)
+        .arg("--version")
+        .output()
+        .await
+        .ok()
+        .and_then(|output| {
+            let value = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            (!value.is_empty()).then_some(value)
+        });
+
+    Ok(OpenCodeStatus {
+        installed: true,
+        path: Some(path.display().to_string()),
+        version,
+    })
+}
+
 #[tauri::command]
 fn app_info() -> String {
     format!("BOSCode {}", env!("CARGO_PKG_VERSION"))
