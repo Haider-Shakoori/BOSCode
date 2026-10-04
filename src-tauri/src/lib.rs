@@ -20,6 +20,14 @@ struct ProviderTestResult {
     status: u16,
     latency_ms: u64,
     message: String,
+    transport: String,
+}
+
+#[derive(Serialize)]
+struct OpenCodeStatus {
+    installed: bool,
+    path: Option<String>,
+    version: Option<String>,
 }
 
 #[derive(Deserialize)]
