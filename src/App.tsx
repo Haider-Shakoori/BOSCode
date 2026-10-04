@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import ProviderSettings from "./ProviderSettings";
 import ChatWorkspace from "./ChatWorkspace";
 import ChangesPanel from "./ChangesPanel";
+import TerminalPanel from "./TerminalPanel";
 import WorkspacePanel, { type WorkspaceEntry, type WorkspaceFile, type WorkspaceSummary } from "./WorkspacePanel";
 
 type NavItem = { icon: string; label: string; badge?: string };
@@ -209,20 +210,10 @@ export default function App() {
             activeFile={activeFile}
           />
 
-          <section className="terminal-panel">
-            <div className="panel-toolbar">
-              <div className="terminal-tabs"><button className="active">Terminal ×</button><button>＋</button></div>
-              <span>PowerShell⌄</span>
-            </div>
-            <div className="terminal-content">
-              <p><span className="muted">PS C:\projects\businessos&gt;</span> <strong>php artisan test</strong></p>
-              <p><span className="pass-label">PASS</span> <span className="muted">Tests\Feature\CheckoutTest</span></p>
-              <p className="terminal-success">✓ it calculates tax correctly</p>
-              <p className="terminal-success">✓ it handles rounding properly</p>
-              <p className="terminal-success">✓ it applies discounts correctly</p>
-              <p className="terminal-summary">Tests: <strong>143 passed</strong> <span>(612 assertions)</span></p>
-            </div>
-          </section>
+          <TerminalPanel
+            workspace={workspace}
+            onNotice={setNotice}
+          />
         </section>
 
         {activeNav === "Source Control" ? (
