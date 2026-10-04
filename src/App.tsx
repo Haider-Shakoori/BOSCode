@@ -5,6 +5,7 @@ import ChatWorkspace from "./ChatWorkspace";
 import ChangesPanel from "./ChangesPanel";
 import TerminalPanel from "./TerminalPanel";
 import GitPanel from "./GitPanel";
+import UpdateCenter from "./UpdateCenter";
 import WorkspacePanel, { type WorkspaceEntry, type WorkspaceFile, type WorkspaceSummary } from "./WorkspacePanel";
 
 type NavItem = { icon: string; label: string; badge?: string };
@@ -42,6 +43,7 @@ export default function App() {
   const [provider, setProvider] = useState("Big Pickle");
   const [notice, setNotice] = useState("Foundation ready");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [updatesOpen, setUpdatesOpen] = useState(false);
   const [workspace, setWorkspace] = useState<WorkspaceSummary | null>(null);
   const [workspaceEntries, setWorkspaceEntries] = useState<WorkspaceEntry[]>([]);
   const [activeFile, setActiveFile] = useState<WorkspaceFile | null>(null);
@@ -132,7 +134,7 @@ export default function App() {
         </button>
         <div className="window-actions" aria-label="Workspace actions">
           <button title="Command palette">⌘</button>
-          <button title="Notifications">◌</button>
+          <button title="Check for updates" onClick={() => setUpdatesOpen(true)}>↻</button>
           <button title="Settings" onClick={() => setSettingsOpen(true)}>⚙</button>
         </div>
       </header>
@@ -248,6 +250,13 @@ export default function App() {
         )}
       </section>
 
+      {updatesOpen && (
+        <UpdateCenter
+          onClose={() => setUpdatesOpen(false)}
+          onNotice={setNotice}
+        />
+      )}
+
       {settingsOpen && (
         <ProviderSettings
           activeProvider={provider}
@@ -259,7 +268,7 @@ export default function App() {
 
       <footer className="statusbar">
         <span><i className="status-dot" /> {notice}</span>
-        <span>⑂ {workspace?.branch ?? "no workspace"}</span><span>UTF-8</span><span>Spaces: 2</span><span>BOSCode 0.1.0</span>
+        <span>⑂ {workspace?.branch ?? "no workspace"}</span><span>UTF-8</span><span>Spaces: 2</span><button className="status-version" onClick={() => setUpdatesOpen(true)}>BOSCode 1.0.0</button>
       </footer>
     </main>
   );
