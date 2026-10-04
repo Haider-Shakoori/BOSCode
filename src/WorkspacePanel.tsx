@@ -39,6 +39,7 @@ type WorkspacePanelProps = {
   onWorkspaceChange: (workspace: WorkspaceSummary, entries: WorkspaceEntry[]) => void;
   onFileOpen: (file: WorkspaceFile) => void;
   onNotice: (message: string) => void;
+  onChangeProposed: () => void;
   mode: "files" | "search" | null;
 };
 
@@ -56,19 +57,29 @@ export default function WorkspacePanel({
   onWorkspaceChange,
   onFileOpen,
   onNotice,
+  onChangeProposed,
   mode,
 }: WorkspacePanelProps) {
-  const [tab, setTab] = useState<"files" | "search" | "preview">("files");
+  const [tab, setTab] = useState<"files" | "search" | "preview" | "new">("files");
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<SearchHit[]>([]);
-  const [busy, setBusy] = useState<"open" | "search" | "file" | null>(null);
+  const [busy, setBusy] = useState<"open" | "search" | "file" | "propose" | null>(null);
   const [error, setError] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [newPath, setNewPath] = useState("");
+  const [newContent, setNewContent] = useState("");
 
   const visibleEntries = useMemo(() => entries.slice(0, 2500), [entries]);
 
   useEffect(() => {
     if (mode) setTab(mode);
   }, [mode]);
+
+  useEffect(() => {
+    setEditing(false);
+    setDraft(activeFile?.content ?? "");
+  }, [activeFile?.path, activeFile?.content]);
 
   const chooseWorkspace = async () => {
     setBusy("open");
@@ -83,9 +94,7 @@ export default function WorkspacePanel({
 
       if (!selected || Array.isArray(selected)) return;
 
-      const summary = await invoke<WorkspaceSummary>("set_workspace", {
-        path: selected,
-      });
+      const summary = await invoke<WorkspaceSummary>("set_workspace", { path: selected });
       const scanned = await invoke<WorkspaceEntry[]>("list_workspace");
       localStorage.setItem("boscode.workspace.path", selected);
       onWorkspaceChange(summary, scanned);
@@ -140,6 +149,74 @@ export default function WorkspacePanel({
     }
   };
 
+  const proposeEdit = async () => {
+    if (!activeFile || draft === activeFile.content) return;
+    setBusy("propose");
+    setError("");
+
+    try {
+      await invoke("propose_workspace_change", {
+        path: activeFile.path,
+        proposedContent: draft,
+        deleteFile: false,
+      });
+      setEditing(false);
+      onChangeProposed();
+      onNotice(`Proposed change for ${activeFile.path}`);
+    } catch (caught) {
+      setError(String(caught));
+      onNotice("Unable to create change proposal");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const proposeDelete = async () => {
+    if (!activeFile) return;
+    setBusy("propose");
+    setError("");
+
+    try {
+      await invoke("propose_workspace_change", {
+        path: activeFile.path,
+        proposedContent: null,
+        deleteFile: true,
+      });
+      onChangeProposed();
+      onNotice(`Proposed deletion of ${activeFile.path}`);
+    } catch (caught) {
+      setError(String(caught));
+      onNotice("Unable to create deletion proposal");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const proposeNewFile = async () => {
+    const path = newPath.trim();
+    if (!path || !workspace) return;
+    setBusy("propose");
+    setError("");
+
+    try {
+      await invoke("propose_workspace_change", {
+        path,
+        proposedContent: newContent,
+        deleteFile: false,
+      });
+      setNewPath("");
+      setNewContent("");
+      setTab("files");
+      onChangeProposed();
+      onNotice(`Proposed new file: ${path}`);
+    } catch (caught) {
+      setError(String(caught));
+      onNotice("Unable to create file proposal");
+    } finally {
+      setBusy(null);
+    }
+  };
+
   if (!workspace) {
     return (
       <aside className="right-panel workspace-empty-panel">
@@ -148,12 +225,12 @@ export default function WorkspacePanel({
           <h3>Open a codebase</h3>
           <p>
             Select a local project folder. BOSCode will index its safe text files for
-            navigation, search, and AI context.
+            navigation, search, AI context, and reviewed change proposals.
           </p>
           <button onClick={() => void chooseWorkspace()} disabled={busy !== null}>
             {busy === "open" ? "Opening…" : "Open Folder"}
           </button>
-          <small>Read-only in this batch · sensitive files are excluded</small>
+          <small>Read-only by default · sensitive files are excluded</small>
           {error && <div className="workspace-error">{error}</div>}
         </div>
       </aside>
@@ -170,14 +247,24 @@ export default function WorkspacePanel({
             <span title={workspace.root}>{workspace.root}</span>
           </div>
         </div>
-        <button
-          className="workspace-switch"
-          onClick={() => void chooseWorkspace()}
-          disabled={busy !== null}
-          title="Open another folder"
-        >
-          ⋯
-        </button>
+        <div className="workspace-header-actions">
+          <button
+            className="workspace-switch"
+            onClick={() => setTab("new")}
+            disabled={busy !== null}
+            title="Propose a new file"
+          >
+            ＋
+          </button>
+          <button
+            className="workspace-switch"
+            onClick={() => void chooseWorkspace()}
+            disabled={busy !== null}
+            title="Open another folder"
+          >
+            ⋯
+          </button>
+        </div>
       </div>
 
       <div className="workspace-meta">
@@ -200,6 +287,9 @@ export default function WorkspacePanel({
           disabled={!activeFile}
         >
           Preview
+        </button>
+        <button className={tab === "new" ? "active" : ""} onClick={() => setTab("new")}>
+          New File
         </button>
       </div>
 
@@ -272,16 +362,83 @@ export default function WorkspacePanel({
 
       {tab === "preview" && activeFile && (
         <div className="workspace-preview">
-          <div className="workspace-preview-header">
+          <div className="workspace-preview-header editable">
             <div>
               <strong>{activeFile.path}</strong>
               <span>{activeFile.language} · {formatSize(activeFile.size)}</span>
             </div>
-            <span className="context-badge">AI context</span>
+            <div className="preview-actions">
+              <span className="context-badge">AI context</span>
+              <button onClick={() => setEditing((value) => !value)}>
+                {editing ? "Cancel" : "Edit"}
+              </button>
+              <button className="danger-link" onClick={() => void proposeDelete()} disabled={busy !== null}>
+                Delete
+              </button>
+            </div>
           </div>
-          <pre>
-            <code>{activeFile.content}</code>
-          </pre>
+
+          {editing ? (
+            <div className="workspace-editor">
+              <textarea
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                spellCheck={false}
+                aria-label={`Edit ${activeFile.path}`}
+              />
+              <div className="workspace-editor-actions">
+                <span>Nothing is written until the proposal is applied from Changes.</span>
+                <button
+                  className="primary"
+                  onClick={() => void proposeEdit()}
+                  disabled={busy !== null || draft === activeFile.content}
+                >
+                  {busy === "propose" ? "Proposing…" : "Propose Change"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <pre>
+              <code>{activeFile.content}</code>
+            </pre>
+          )}
+        </div>
+      )}
+
+      {tab === "new" && (
+        <div className="new-file-editor">
+          <div className="new-file-heading">
+            <strong>Propose new file</strong>
+            <span>The parent folder must already exist.</span>
+          </div>
+          <label>
+            <span>Workspace-relative path</span>
+            <input
+              value={newPath}
+              onChange={(event) => setNewPath(event.target.value)}
+              placeholder="src/new-file.ts"
+              spellCheck={false}
+            />
+          </label>
+          <label className="new-file-content">
+            <span>File content</span>
+            <textarea
+              value={newContent}
+              onChange={(event) => setNewContent(event.target.value)}
+              placeholder="Enter the complete file content…"
+              spellCheck={false}
+            />
+          </label>
+          <div className="workspace-editor-actions">
+            <span>Secrets and paths outside this workspace are blocked.</span>
+            <button
+              className="primary"
+              onClick={() => void proposeNewFile()}
+              disabled={busy !== null || !newPath.trim()}
+            >
+              {busy === "propose" ? "Proposing…" : "Propose File"}
+            </button>
+          </div>
         </div>
       )}
 

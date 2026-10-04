@@ -1465,3 +1465,409 @@ body {
     max-width: 150px;
   }
 }
+
+
+.workspace-header-actions,
+.preview-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.workspace-preview-header.editable {
+  gap: 10px;
+}
+
+.preview-actions button,
+.workspace-editor-actions button,
+.changes-actions button,
+.pending-diff-card header button {
+  min-height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 0 10px;
+  background: rgba(255,255,255,.035);
+  color: #9fb0c7;
+  cursor: pointer;
+  font-size: 9px;
+}
+
+.preview-actions button:hover,
+.workspace-editor-actions button:hover,
+.changes-actions button:hover,
+.pending-diff-card header button:hover {
+  color: #e8f1ff;
+  background: rgba(255,255,255,.06);
+}
+
+.preview-actions .danger-link {
+  color: #ff8492;
+  border-color: rgba(255,100,117,.14);
+  background: rgba(255,100,117,.04);
+}
+
+.workspace-editor,
+.new-file-editor {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0,1fr) auto;
+  padding: 10px;
+  gap: 8px;
+}
+
+.workspace-editor textarea,
+.new-file-editor textarea,
+.new-file-editor input {
+  width: 100%;
+  border: 1px solid rgba(145,175,226,.17);
+  border-radius: 8px;
+  outline: 0;
+  color: #dce8f8;
+  background: #070c14;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 10px;
+}
+
+.workspace-editor textarea {
+  min-height: 360px;
+  resize: none;
+  padding: 12px;
+  line-height: 1.55;
+}
+
+.workspace-editor textarea:focus,
+.new-file-editor textarea:focus,
+.new-file-editor input:focus {
+  border-color: rgba(43,140,255,.52);
+  box-shadow: 0 0 0 3px rgba(39,140,255,.07);
+}
+
+.workspace-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.workspace-editor-actions span {
+  margin-right: auto;
+  color: #697990;
+  font-size: 8.5px;
+}
+
+.workspace-editor-actions .primary,
+.changes-actions .primary,
+.pending-diff-card header .primary {
+  border-color: transparent;
+  color: #fff;
+  background: linear-gradient(145deg,#1683ff,#276bff);
+}
+
+.workspace-editor-actions button:disabled,
+.changes-actions button:disabled,
+.pending-diff-card header button:disabled {
+  opacity: .42;
+  cursor: default;
+}
+
+.new-file-editor {
+  grid-template-rows: auto auto minmax(0,1fr) auto;
+  overflow: hidden;
+}
+
+.new-file-heading {
+  display: grid;
+  gap: 3px;
+  padding: 2px 2px 6px;
+}
+
+.new-file-heading strong {
+  font-size: 11px;
+}
+
+.new-file-heading span,
+.new-file-editor label > span {
+  color: #73839b;
+  font-size: 9px;
+}
+
+.new-file-editor label {
+  display: grid;
+  gap: 6px;
+}
+
+.new-file-editor input {
+  height: 36px;
+  padding: 0 10px;
+}
+
+.new-file-content {
+  min-height: 0;
+}
+
+.new-file-editor textarea {
+  min-height: 300px;
+  height: 100%;
+  resize: none;
+  padding: 11px;
+  line-height: 1.55;
+}
+
+.changes-panel {
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0,1fr);
+  overflow: hidden;
+}
+
+.changes-empty {
+  display: grid;
+  place-items: center;
+}
+
+.changes-toolbar {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 11px;
+  border-bottom: 1px solid var(--line);
+}
+
+.changes-toolbar > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.changes-toolbar strong {
+  font-size: 12px;
+}
+
+.changes-toolbar > div:first-child span {
+  color: #718099;
+  font-size: 9px;
+}
+
+.permission-control {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.permission-control select {
+  height: 29px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 0 8px;
+  outline: 0;
+  color: #a9b8ce;
+  background: #101827;
+  font-size: 9px;
+}
+
+.permission-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #748198;
+  box-shadow: 0 0 0 3px rgba(116,129,152,.08);
+}
+
+.permission-dot.write {
+  background: #ffb454;
+  box-shadow: 0 0 0 3px rgba(255,180,84,.09), 0 0 10px rgba(255,180,84,.18);
+}
+
+.changes-actions {
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255,255,255,.012);
+}
+
+.changes-error {
+  position: static !important;
+  margin: 7px 9px 0;
+}
+
+.changes-empty-state {
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 7px;
+  padding: 30px;
+  text-align: center;
+}
+
+.changes-empty-state > div {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #55dfa0;
+  background: rgba(61,220,151,.08);
+  border: 1px solid rgba(61,220,151,.15);
+}
+
+.changes-empty-state strong {
+  font-size: 11px;
+}
+
+.changes-empty-state p {
+  max-width: 300px;
+  margin: 0;
+  color: #718099;
+  font-size: 9.5px;
+  line-height: 1.55;
+}
+
+.pending-change-list {
+  max-height: 190px;
+  overflow: auto;
+  padding: 6px;
+  border-bottom: 1px solid var(--line);
+}
+
+.pending-change-list > button {
+  width: 100%;
+  min-height: 32px;
+  display: grid;
+  grid-template-columns: 20px minmax(0,1fr) auto;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 0 7px;
+  color: #91a0b5;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pending-change-list > button:hover,
+.pending-change-list > button.active {
+  background: rgba(44,102,190,.09);
+}
+
+.pending-change-list > button.active {
+  border-color: rgba(46,137,255,.16);
+}
+
+.pending-action {
+  width: 17px;
+  height: 17px;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.pending-action.create {
+  color: #59dfa0;
+  background: rgba(61,220,151,.09);
+}
+
+.pending-action.update {
+  color: #ffb15f;
+  background: rgba(255,157,77,.09);
+}
+
+.pending-action.delete {
+  color: #ff7f8e;
+  background: rgba(255,100,117,.09);
+}
+
+.pending-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 9.5px;
+}
+
+.pending-stat {
+  font-size: 8px;
+}
+
+.pending-stat i {
+  color: #57dfa0;
+  font-style: normal;
+}
+
+.pending-stat b {
+  margin-left: 3px;
+  color: #ff7f8e;
+  font-weight: 500;
+}
+
+.pending-diff-card {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0,1fr);
+  margin: 8px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: rgba(8,13,22,.82);
+}
+
+.pending-diff-card header {
+  min-height: 44px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border-bottom: 1px solid var(--line);
+}
+
+.pending-diff-card header > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.pending-diff-card header strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 9.5px;
+}
+
+.pending-diff-card header span {
+  color: #76869d;
+  font-size: 8px;
+  text-transform: uppercase;
+}
+
+.pending-diff-card header > div:last-child {
+  display: flex;
+  gap: 5px;
+}
+
+.write-lock-note {
+  padding: 7px 9px;
+  border-bottom: 1px solid rgba(255,180,84,.12);
+  color: #9c896d;
+  background: rgba(255,180,84,.035);
+  font-size: 8.5px;
+}
+
+.write-lock-note strong {
+  color: #d9aa6a;
+}
+
+.unified-diff {
+  min-height: 0;
+  margin: 0;
+  overflow: auto;
+  padding: 10px;
+  color: #9eacc0;
+  background: #070c14;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 8.5px;
+  line-height: 1.55;
+  white-space: pre;
+}

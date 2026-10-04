@@ -76,7 +76,7 @@ fn ignored_entry(entry: &DirEntry) -> bool {
     )
 }
 
-fn is_sensitive_path(path: &Path) -> bool {
+pub(crate) fn is_sensitive_path(path: &Path) -> bool {
     let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
         return false;
     };
@@ -106,7 +106,7 @@ fn is_sensitive_path(path: &Path) -> bool {
         || name.ends_with(".key")
 }
 
-fn workspace_root(state: &State<'_, WorkspaceState>) -> Result<PathBuf, String> {
+pub(crate) fn workspace_root(state: &State<'_, WorkspaceState>) -> Result<PathBuf, String> {
     state
         .root
         .lock()

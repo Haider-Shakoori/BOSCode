@@ -14,21 +14,31 @@ BOSCode is a local-first desktop coding agent designed to understand a repositor
 
 ## Current milestone
 
-### Batch 1 — Desktop foundation
+### Completed
 
-- [x] Tauri 2 Windows desktop shell
-- [x] React + TypeScript frontend
-- [x] Premium BOSCode workspace UI
-- [x] Chat, sessions, task progress, diff and terminal surfaces
-- [x] Provider selector shell
-- [x] Rust command foundation
-- [x] Windows GitHub Actions validation
-- [x] Real project/folder access
-- [ ] Secure API-key storage
-- [ ] Streaming AI provider connection
-- [ ] Agent file write operations
-- [ ] Terminal execution
-- [ ] Git operations
+- [x] Batch 1 — Tauri 2 desktop foundation and premium workspace UI
+- [x] Batch 2 — secure AI provider settings and OS credential storage
+- [x] Batch 3 — real streaming AI chat and local session history
+- [x] Batch 4 — workspace selection, repository indexing, safe reads, search, and AI context
+
+### Batch 5 — reviewed agent changes
+
+- [x] Read-only permission mode by default
+- [x] Explicit Workspace Write permission
+- [x] Propose file create/update/delete operations
+- [x] Unified diff previews
+- [x] Apply / Reject / Apply All
+- [x] Undo Last
+- [x] Stale-file protection before apply and undo
+- [x] Sensitive-file and workspace-boundary protection
+- [x] Explorer editor and new-file proposal UI
+- [x] Rust regression tests for permission, paths, and diffs
+
+### Remaining roadmap
+
+- [ ] Batch 6 — terminal execution, command approval, and build/test/fix loops
+- [ ] Batch 7 — Git/GitHub workflows, branches, commits, push/pull, and PR assistance
+- [ ] Batch 8 — production hardening, updater, signed installer pipeline, regression suite
 
 ## Local development
 
