@@ -275,7 +275,7 @@ export default function App() {
 
       <footer className="statusbar">
         <span><i className="status-dot" /> {notice}</span>
-        <span>⑂ {workspace?.branch ?? "no workspace"}</span><span>UTF-8</span><span>Spaces: 2</span><button className="status-version" onClick={() => setUpdatesOpen(true)}>BOSCode 1.0.0</button>
+        <span>⑂ {workspace?.branch ?? "no workspace"}</span><span>UTF-8</span><span>Spaces: 2</span><button className="status-version" onClick={() => setUpdatesOpen(true)}>BOSCode 1.1.0</button>
       </footer>
     </main>
   );
