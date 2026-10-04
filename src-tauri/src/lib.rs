@@ -1,3 +1,4 @@
+mod terminal;
 mod changes;
 mod workspace;
 
@@ -359,6 +360,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(workspace::WorkspaceState::default())
+        .manage(terminal::CommandState::default())
         .manage(changes::ChangeState::default())
         .invoke_handler(tauri::generate_handler![
             app_info,
@@ -375,6 +377,14 @@ pub fn run() {
             changes::reject_workspace_change,
             changes::apply_workspace_change,
             changes::undo_last_workspace_change,
+            terminal::detect_workspace_commands,
+            terminal::propose_command,
+            terminal::list_command_proposals,
+            terminal::reject_command,
+            terminal::run_approved_command,
+            terminal::cancel_command,
+            terminal::command_history,
+            terminal::latest_command_context,
             save_provider_secret,
             provider_secret_exists,
             delete_provider_secret,
