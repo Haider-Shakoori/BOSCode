@@ -33,8 +33,8 @@ type MemoryCaptureResult = {
 const providerMeta: Record<string, { id: string; baseUrl: string; model: string; keyRequired: boolean }> = {
   "Big Pickle": {
     id: "big-pickle",
-    baseUrl: "https://opencode.ai/zen/v1",
-    model: "big-pickle",
+    baseUrl: "",
+    model: "opencode/big-pickle",
     keyRequired: true,
   },
   OpenAI: {
@@ -151,8 +151,12 @@ export default function ChatWorkspace({
 
     const config = readProviderConfig();
 
-    if (!config.baseUrl.trim() || !config.model.trim()) {
-      onNotice(`${provider} needs a Base URL and model`);
+    if (!config.model.trim() || (meta.id !== "big-pickle" && !config.baseUrl.trim())) {
+      onNotice(
+        meta.id === "big-pickle"
+          ? `${provider} needs a model`
+          : `${provider} needs a Base URL and model`,
+      );
       onOpenSettings();
       return;
     }
