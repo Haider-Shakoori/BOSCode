@@ -4,6 +4,7 @@ import ProviderSettings from "./ProviderSettings";
 import ChatWorkspace from "./ChatWorkspace";
 import ChangesPanel from "./ChangesPanel";
 import TerminalPanel from "./TerminalPanel";
+import GitPanel from "./GitPanel";
 import WorkspacePanel, { type WorkspaceEntry, type WorkspaceFile, type WorkspaceSummary } from "./WorkspacePanel";
 
 type NavItem = { icon: string; label: string; badge?: string };
@@ -201,19 +202,29 @@ export default function App() {
             ))}
           </div>
 
-          <ChatWorkspace
-            provider={provider}
-            onProviderChange={setProvider}
-            onNotice={setNotice}
-            onOpenSettings={() => setSettingsOpen(true)}
-            workspace={workspace}
-            activeFile={activeFile}
-          />
+          {activeTab === "Git" ? (
+            <GitPanel
+              workspace={workspace}
+              onNotice={setNotice}
+              onWorkspaceRefresh={refreshWorkspace}
+            />
+          ) : (
+            <>
+              <ChatWorkspace
+                provider={provider}
+                onProviderChange={setProvider}
+                onNotice={setNotice}
+                onOpenSettings={() => setSettingsOpen(true)}
+                workspace={workspace}
+                activeFile={activeFile}
+              />
 
-          <TerminalPanel
-            workspace={workspace}
-            onNotice={setNotice}
-          />
+              <TerminalPanel
+                workspace={workspace}
+                onNotice={setNotice}
+              />
+            </>
+          )}
         </section>
 
         {activeNav === "Source Control" ? (
