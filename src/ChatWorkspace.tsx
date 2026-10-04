@@ -1,11 +1,14 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { Fragment, useEffect, useState } from "react";
+import type { WorkspaceFile, WorkspaceSummary } from "./WorkspacePanel";
 
 type ChatWorkspaceProps = {
   provider: string;
   onProviderChange: (provider: string) => void;
   onNotice: (message: string) => void;
   onOpenSettings: () => void;
+  workspace: WorkspaceSummary | null;
+  activeFile: WorkspaceFile | null;
 };
 
 type Message = {
@@ -67,6 +70,8 @@ export default function ChatWorkspace({
   onProviderChange,
   onNotice,
   onOpenSettings,
+  workspace,
+  activeFile,
 }: ChatWorkspaceProps) {
   const [messages, setMessages] = useState<Message[]>(() => {
     const raw = localStorage.getItem(sessionStorageKey);
@@ -157,10 +162,36 @@ export default function ChatWorkspace({
       content: "",
       streaming: true,
     };
-    const requestMessages = [...messages, userMessage].map(({ role, content }) => ({
+    let workspaceContext = "";
+    if (workspace) {
+      try {
+        workspaceContext = await invoke<string>("build_workspace_context", {
+          query: prompt,
+          activeFile: activeFile?.path ?? null,
+        });
+      } catch (caught) {
+        console.warn("Workspace context unavailable", caught);
+      }
+    }
+
+    const historyMessages = [...messages, userMessage].map(({ role, content }) => ({
       role,
       content,
     }));
+
+    const requestMessages = workspaceContext
+      ? [
+          {
+            role: "system",
+            content:
+              "You are BOSCode, a coding agent working inside the user's selected repository. " +
+              "Use the supplied read-only workspace context as evidence. Do not invent file contents or claim edits were applied. " +
+              "When proposing changes, name the exact files and explain what should change.\n\n" +
+              workspaceContext,
+          },
+          ...historyMessages,
+        ]
+      : historyMessages;
 
     setInput("");
     setSending(true);
@@ -285,6 +316,15 @@ export default function ChatWorkspace({
           </>
         )}
       </div>
+
+      {workspace && (
+        <div className="context-strip">
+          <span>▱ {workspace.name}</span>
+          <span>⑂ {workspace.branch ?? "no branch"}</span>
+          {activeFile && <span className="active-context-file">＋ {activeFile.path}</span>}
+          <small>read-only context</small>
+        </div>
+      )}
 
       <div className="composer">
         <textarea
