@@ -23,10 +23,10 @@ BOSCode is a local-first desktop coding agent designed to understand a repositor
 - [x] Provider selector shell
 - [x] Rust command foundation
 - [x] Windows GitHub Actions validation
-- [ ] Real project/folder access
+- [x] Real project/folder access
 - [ ] Secure API-key storage
 - [ ] Streaming AI provider connection
-- [ ] Agent file operations
+- [ ] Agent file write operations
 - [ ] Terminal execution
 - [ ] Git operations
 
@@ -79,3 +79,18 @@ BOSCode Desktop
 ```
 
 BOSCode is being built so no BOSCode-owned live server is required for the core desktop experience.
+
+
+### Batch 4 — Workspace intelligence
+
+- Native folder selection
+- Sandboxed workspace root
+- Read-only repository indexing
+- File explorer and text preview
+- Repository-wide text search
+- Basic Git branch detection
+- Sensitive file filtering
+- Prompt-aware repository context for AI chat
+- Rust regression tests for workspace safety
+
+The workspace layer is intentionally read-only at this stage. Write operations and process execution will require explicit permission controls in the next agent-tools batch.
