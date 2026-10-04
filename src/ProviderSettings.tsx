@@ -39,7 +39,7 @@ const providers: ProviderDefinition[] = [
     baseUrl: "https://opencode.ai/zen/v1",
     model: "big-pickle",
     keyRequired: true,
-    note: "Default BOSCode provider through an OpenAI-compatible endpoint.",
+    note: "Default BOSCode provider through OpenCode Zen. Free-period prompts may be used by the provider to improve the model.",
   },
   {
     id: "openai",

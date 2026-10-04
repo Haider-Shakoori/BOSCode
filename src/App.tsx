@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import ProviderSettings from "./ProviderSettings";
+import ChatWorkspace from "./ChatWorkspace";
 
 type NavItem = { icon: string; label: string; badge?: string };
 
@@ -19,15 +20,6 @@ const sessions = [
   ["Add inventory report", "1d"],
 ];
 
-const steps = [
-  ["done", "Reading Sale.php"],
-  ["done", "Reading Invoice.php"],
-  ["done", "Found rounding issue in calculation"],
-  ["done", "Applying fix to Sale.php"],
-  ["done", "Adding unit tests"],
-  ["running", "Running test suite..."],
-  ["waiting", "Review results and adjust if needed"],
-];
 
 const files = [
   { path: "app/Models/Sale.php", type: "M", tone: "orange" },
@@ -47,7 +39,6 @@ function BrandMark() {
 export default function App() {
   const [activeNav, setActiveNav] = useState("Chat");
   const [activeTab, setActiveTab] = useState("Chat");
-  const [message, setMessage] = useState("");
   const [provider, setProvider] = useState("Big Pickle");
   const [notice, setNotice] = useState("Foundation ready");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -57,12 +48,6 @@ export default function App() {
     [],
   );
 
-  const sendMessage = () => {
-    const prompt = message.trim();
-    if (!prompt) return;
-    setNotice(`Queued: ${prompt.slice(0, 42)}${prompt.length > 42 ? "…" : ""}`);
-    setMessage("");
-  };
 
   return (
     <main className="app-shell">
@@ -150,56 +135,12 @@ export default function App() {
             ))}
           </div>
 
-          <div className="chat-panel">
-            <article className="message user-message">
-              <div className="message-avatar user">H</div>
-              <div>
-                <strong>You</strong>
-                <p>Fix the checkout rounding issue and add tests. Then run the test suite and make sure everything passes.</p>
-              </div>
-            </article>
-            <article className="message agent-message">
-              <div className="message-avatar agent"><BrandMark /></div>
-              <div className="message-body">
-                <div className="agent-title"><strong>BOSCode</strong><span>{provider}</span><i /></div>
-                <p>I’ll inspect the checkout calculation, identify the rounding issue, implement the fix, and validate it with tests.</p>
-                <div className="task-steps">
-                  {steps.map(([state, label]) => (
-                    <div className="task-step" key={label}>
-                      <span className={`step-icon ${state}`}>{state === "done" ? "✓" : ""}</span>
-                      <span>{label}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </article>
-          </div>
-
-          <div className="composer">
-            <textarea
-              value={message}
-              onChange={(event) => setMessage(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  sendMessage();
-                }
-              }}
-              placeholder="Ask BOSCode anything…"
-              rows={1}
-            />
-            <div className="composer-actions">
-              <select value={provider} onChange={(event) => setProvider(event.target.value)}>
-                <option>Big Pickle</option>
-                <option>OpenAI</option>
-                <option>Claude</option>
-                <option>Gemini</option>
-                <option>Ollama</option>
-              </select>
-              <button className="attach" title="Attach context">⌁</button>
-              <button className="send" onClick={sendMessage} aria-label="Send">➜</button>
-            </div>
-          </div>
+          <ChatWorkspace
+            provider={provider}
+            onProviderChange={setProvider}
+            onNotice={setNotice}
+            onOpenSettings={() => setSettingsOpen(true)}
+          />
 
           <section className="terminal-panel">
             <div className="panel-toolbar">
