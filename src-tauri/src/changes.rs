@@ -173,6 +173,13 @@ fn resolve_change_path(root: &Path, relative_path: &str) -> Result<PathBuf, Stri
     let candidate = root.join(relative);
 
     if candidate.exists() {
+        if fs::symlink_metadata(&candidate)
+            .map(|metadata| metadata.file_type().is_symlink())
+            .unwrap_or(false)
+        {
+            return Err("BOSCode does not modify files through symbolic links.".to_string());
+        }
+
         let canonical = candidate
             .canonicalize()
             .map_err(|_| "Unable to resolve the requested path.".to_string())?;
@@ -368,6 +375,8 @@ pub fn propose_workspace_change(
         .pending
         .lock()
         .map_err(|_| "Change state is unavailable.".to_string())?;
+
+    pending_changes.retain(|_, existing| existing.path != pending.path);
 
     if pending_changes.len() >= MAX_PENDING_CHANGES {
         return Err("Too many pending changes. Apply or reject some changes first.".to_string());
