@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useState } from "react";
 import type { WorkspaceSummary } from "./WorkspacePanel";
+import "./memory.css";
 
 type MemoryItem = {
   id: string;
