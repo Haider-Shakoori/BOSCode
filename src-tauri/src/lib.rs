@@ -1,3 +1,4 @@
+mod changes;
 mod workspace;
 
 use futures_util::StreamExt;
@@ -358,6 +359,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(workspace::WorkspaceState::default())
+        .manage(changes::ChangeState::default())
         .invoke_handler(tauri::generate_handler![
             app_info,
             workspace::set_workspace,
@@ -366,6 +368,13 @@ pub fn run() {
             workspace::read_workspace_file,
             workspace::search_workspace,
             workspace::build_workspace_context,
+            changes::get_permission_mode,
+            changes::set_permission_mode,
+            changes::propose_workspace_change,
+            changes::list_pending_changes,
+            changes::reject_workspace_change,
+            changes::apply_workspace_change,
+            changes::undo_last_workspace_change,
             save_provider_secret,
             provider_secret_exists,
             delete_provider_secret,
