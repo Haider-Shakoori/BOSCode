@@ -1,0 +1,97 @@
+name: BOSCode Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  windows-release:
+    name: Build and publish Windows release
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      BOSCODE_UPDATER_PUBKEY: ${{ secrets.BOSCODE_UPDATER_PUBKEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Verify release version
+        run: npm run version:check
+
+      - name: Run production regression
+        shell: pwsh
+        run: |
+          npm run build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --manifest-path src-tauri/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Configure signed updater
+        if: env.TAURI_SIGNING_PRIVATE_KEY != '' && env.BOSCODE_UPDATER_PUBKEY != ''
+        shell: pwsh
+        run: |
+          $path = "src-tauri/tauri.conf.json"
+          $config = Get-Content $path -Raw | ConvertFrom-Json
+          $config.plugins.updater.pubkey = $env:BOSCODE_UPDATER_PUBKEY
+          $config.bundle.createUpdaterArtifacts = $true
+          $config | ConvertTo-Json -Depth 20 | Set-Content $path -Encoding utf8
+          Write-Host "Signed updater artifacts enabled."
+
+      - name: Build signed updater release
+        if: env.TAURI_SIGNING_PRIVATE_KEY != '' && env.BOSCODE_UPDATER_PUBKEY != ''
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: v__VERSION__
+          releaseName: "BOSCode v__VERSION__"
+          releaseBody: |
+            BOSCode production release by BusinessOS.
+
+            Includes the Windows NSIS installer, MSI package, and signed updater metadata.
+          releaseDraft: false
+          prerelease: false
+
+      - name: Build unsigned installer release
+        if: env.TAURI_SIGNING_PRIVATE_KEY == '' || env.BOSCODE_UPDATER_PUBKEY == ''
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: v__VERSION__
+          releaseName: "BOSCode v__VERSION__"
+          releaseBody: |
+            BOSCode production release by BusinessOS.
+
+            Windows installer artifacts are available. Signed in-app updater artifacts were not generated because updater signing secrets are not configured.
+          releaseDraft: false
+          prerelease: false
+
+      - name: Upload Windows bundles as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BOSCode-v1.0.0-Windows
+          path: |
+            src-tauri/target/release/bundle/nsis/*
+            src-tauri/target/release/bundle/msi/*
+          if-no-files-found: error
+          retention-days: 30
