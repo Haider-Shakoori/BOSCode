@@ -11,7 +11,8 @@
     "typecheck": "tsc -b --pretty false",
     "tauri": "tauri",
     "check": "npm run typecheck && npm run build",
-    "version:check": "node scripts/check-version.mjs"
+    "version:check": "node scripts/check-version.mjs",
+    "prepare:opencode": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/prepare-opencode.ps1"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.1",
