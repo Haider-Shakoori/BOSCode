@@ -59,6 +59,15 @@ const providers: ProviderDefinition[] = [
     note: "Direct OpenAI-compatible provider.",
   },
   {
+    id: "deepseek",
+    name: "DeepSeek",
+    badge: "DS",
+    baseUrl: "https://api.deepseek.com",
+    model: "deepseek-flash",
+    keyRequired: true,
+    note: "Direct DeepSeek API access using the official OpenAI-compatible endpoint.",
+  },
+  {
     id: "openrouter",
     name: "OpenRouter",
     badge: "OR",
@@ -312,7 +321,14 @@ export default function ProviderSettings({
                     onChange={(event) => setModel(event.target.value)}
                     placeholder="Model ID"
                     spellCheck={false}
+                    list={selected.id === "deepseek" ? "deepseek-models" : undefined}
                   />
+                  {selected.id === "deepseek" && (
+                    <datalist id="deepseek-models">
+                      <option value="deepseek-flash" />
+                      <option value="deepseek-v4-pro" />
+                    </datalist>
+                  )}
                 </label>
 
                 <label>

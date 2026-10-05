@@ -43,6 +43,12 @@ const providerMeta: Record<string, { id: string; baseUrl: string; model: string;
     model: "gpt-5.6",
     keyRequired: true,
   },
+  DeepSeek: {
+    id: "deepseek",
+    baseUrl: "https://api.deepseek.com",
+    model: "deepseek-flash",
+    keyRequired: true,
+  },
   OpenRouter: {
     id: "openrouter",
     baseUrl: "https://openrouter.ai/api/v1",
@@ -404,6 +410,7 @@ export default function ChatWorkspace({
           >
             <option>Big Pickle</option>
             <option>OpenAI</option>
+            <option>DeepSeek</option>
             <option>OpenRouter</option>
             <option>Ollama</option>
             <option>Custom</option>
