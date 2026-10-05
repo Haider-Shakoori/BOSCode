@@ -36,6 +36,7 @@ type OpenCodeStatus = {
   installed: boolean;
   path: string | null;
   version: string | null;
+  source: "system" | "bundled" | null;
 };
 
 const providers: ProviderDefinition[] = [
@@ -140,7 +141,7 @@ export default function ProviderSettings({
       invoke<OpenCodeStatus>("opencode_status")
         .then(setOpenCodeStatus)
         .catch(() =>
-          setOpenCodeStatus({ installed: false, path: null, version: null }),
+          setOpenCodeStatus({ installed: false, path: null, version: null, source: null }),
         );
     } else {
       setOpenCodeStatus(null);
@@ -286,8 +287,10 @@ export default function ProviderSettings({
                     <p>
                       <strong>OpenCode CLI bridge</strong><br />
                       {openCodeStatus?.installed
-                        ? `Detected ${openCodeStatus.version ?? "OpenCode"} locally. BOSCode will invoke OpenCode directly instead of calling the Zen HTTP endpoint.`
-                        : "OpenCode CLI was not detected. Install OpenCode first, then reopen BOSCode or test again."}
+                        ? openCodeStatus.source === "bundled"
+                          ? `Bundled ${openCodeStatus.version ?? "OpenCode"} runtime is ready. No separate OpenCode installation is required.`
+                          : `Detected system ${openCodeStatus.version ?? "OpenCode"}. BOSCode will prefer your installed CLI and use its bundled runtime as a fallback.`
+                        : "OpenCode runtime is missing. Reinstall BOSCode to restore the bundled CLI."}
                     </p>
                   </div>
                 ) : (
