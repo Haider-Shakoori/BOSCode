@@ -12,3 +12,6 @@ src-tauri/gen/
 .idea/
 .DS_Store
 Thumbs.db
+
+src-tauri/resources/opencode/opencode.exe
+src-tauri/resources/opencode/VERSION
