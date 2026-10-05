@@ -25,17 +25,33 @@ $ArchivePath = Join-Path $TempRoot $Asset
 $ExtractDir = Join-Path $TempRoot "extract"
 
 try {
-    New-Item -ItemType Directory -Force -Path $TempRoot, $ExtractDir | Out-Null
+    New-Item -ItemType Directory -Force -Path $TempRoot | Out-Null
 
     Write-Host "Downloading OpenCode $Version for the BOSCode Windows bundle..."
     Invoke-WebRequest -Uri $Url -OutFile $ArchivePath -UseBasicParsing
 
-    $ActualSha256 = (Get-FileHash -Path $ArchivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $Stream = [System.IO.File]::OpenRead($ArchivePath)
+    try {
+        $Sha256 = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $HashBytes = $Sha256.ComputeHash($Stream)
+        }
+        finally {
+            $Sha256.Dispose()
+        }
+    }
+    finally {
+        $Stream.Dispose()
+    }
+
+    $ActualSha256 = ([System.BitConverter]::ToString($HashBytes)).Replace("-", "").ToLowerInvariant()
     if ($ActualSha256 -ne $ExpectedSha256) {
         throw "OpenCode checksum mismatch. Expected $ExpectedSha256 but received $ActualSha256."
     }
 
-    Expand-Archive -Path $ArchivePath -DestinationPath $ExtractDir -Force
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($ArchivePath, $ExtractDir)
+
     $Candidate = Get-ChildItem -Path $ExtractDir -Filter "opencode.exe" -File -Recurse | Select-Object -First 1
 
     if (-not $Candidate) {
