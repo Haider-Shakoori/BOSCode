@@ -1,2 +1,2 @@
-BOSCode v1.0.0 production release trigger
-MSI bundle icon packaging verified by CI.
+BOSCode v1.1.0 production release trigger
+Includes bundled OpenCode runtime, persistent memory, and native DeepSeek provider support.
