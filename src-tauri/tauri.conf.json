@@ -54,8 +54,7 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "resources/opencode/opencode.exe": "opencode/opencode.exe",
-      "resources/opencode/LICENSE.txt": "opencode/LICENSE.txt"
+      "resources/opencode/": "opencode/"
     }
   },
   "plugins": {
