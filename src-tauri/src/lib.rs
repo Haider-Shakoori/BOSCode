@@ -11,7 +11,8 @@ use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::time::{Duration, Instant};
-use tauri::{ipc::Channel, Manager};
+use tauri::path::BaseDirectory;
+use tauri::{ipc::Channel, AppHandle, Manager};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 
@@ -32,6 +33,7 @@ struct OpenCodeStatus {
     installed: bool,
     path: Option<String>,
     version: Option<String>,
+    source: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -137,10 +139,24 @@ fn validate_messages(messages: &[ChatMessage]) -> Result<(), String> {
     Ok(())
 }
 
-fn opencode_binary() -> Result<PathBuf, String> {
-    which::which("opencode").map_err(|_| {
-        "OpenCode CLI is not installed or is not available on PATH. Install OpenCode, then restart BOSCode.".to_string()
-    })
+fn opencode_binary(app: &AppHandle) -> Result<(PathBuf, &'static str), String> {
+    if let Ok(system_binary) = which::which("opencode") {
+        return Ok((system_binary, "system"));
+    }
+
+    let bundled_binary = app
+        .path()
+        .resolve("opencode/opencode.exe", BaseDirectory::Resource)
+        .map_err(|error| format!("Unable to resolve the bundled OpenCode runtime: {error}"))?;
+
+    if bundled_binary.is_file() {
+        return Ok((bundled_binary, "bundled"));
+    }
+
+    Err(
+        "OpenCode CLI is unavailable. Reinstall BOSCode to restore the bundled OpenCode runtime."
+            .to_string(),
+    )
 }
 
 fn normalize_opencode_model(model: &str) -> String {
@@ -225,8 +241,13 @@ fn opencode_error_event(value: &Value) -> Option<String> {
         .filter(|error| !error.is_empty())
 }
 
-async fn spawn_opencode(model: &str, prompt: &str, secret: &str) -> Result<Child, String> {
-    let binary = opencode_binary()?;
+async fn spawn_opencode(
+    app: &AppHandle,
+    model: &str,
+    prompt: &str,
+    secret: &str,
+) -> Result<Child, String> {
+    let (binary, _) = opencode_binary(app)?;
     let mut command = Command::new(binary);
     command
         .arg("--pure")
@@ -268,8 +289,13 @@ async fn spawn_opencode(model: &str, prompt: &str, secret: &str) -> Result<Child
     Ok(child)
 }
 
-async fn run_opencode_collect(model: &str, prompt: &str, secret: &str) -> Result<String, String> {
-    let mut child = spawn_opencode(model, prompt, secret).await?;
+async fn run_opencode_collect(
+    app: &AppHandle,
+    model: &str,
+    prompt: &str,
+    secret: &str,
+) -> Result<String, String> {
+    let mut child = spawn_opencode(app, model, prompt, secret).await?;
     let stdout = child
         .stdout
         .take()
@@ -344,12 +370,13 @@ async fn run_opencode_collect(model: &str, prompt: &str, secret: &str) -> Result
 }
 
 async fn stream_opencode_response(
+    app: &AppHandle,
     model: &str,
     prompt: &str,
     secret: &str,
     on_event: &Channel<ChatStreamEvent>,
 ) -> Result<(), String> {
-    let mut child = spawn_opencode(model, prompt, secret).await?;
+    let mut child = spawn_opencode(app, model, prompt, secret).await?;
     let stdout = child
         .stdout
         .take()
@@ -447,14 +474,15 @@ async fn stream_opencode_response(
 }
 
 #[tauri::command]
-async fn opencode_status() -> Result<OpenCodeStatus, String> {
-    let path = match opencode_binary() {
-        Ok(path) => path,
+async fn opencode_status(app: AppHandle) -> Result<OpenCodeStatus, String> {
+    let (path, source) = match opencode_binary(&app) {
+        Ok(runtime) => runtime,
         Err(_) => {
             return Ok(OpenCodeStatus {
                 installed: false,
                 path: None,
                 version: None,
+                source: None,
             })
         }
     };
@@ -473,6 +501,7 @@ async fn opencode_status() -> Result<OpenCodeStatus, String> {
         installed: true,
         path: Some(path.display().to_string()),
         version,
+        source: Some(source.to_string()),
     })
 }
 
@@ -509,6 +538,7 @@ fn delete_provider_secret(provider_id: String) -> Result<(), String> {
 
 #[tauri::command]
 async fn test_provider_connection(
+    app: AppHandle,
     provider_id: String,
     base_url: String,
     model: String,
@@ -537,7 +567,7 @@ async fn test_provider_connection(
         let model = normalize_opencode_model(model);
         let started = Instant::now();
 
-        run_opencode_collect(&model, "Reply only with OK.", &secret).await?;
+        run_opencode_collect(&app, &model, "Reply only with OK.", &secret).await?;
 
         return Ok(ProviderTestResult {
             provider: provider_id,
@@ -602,6 +632,7 @@ async fn test_provider_connection(
 
 #[tauri::command]
 async fn stream_chat(
+    app: AppHandle,
     provider_id: String,
     base_url: String,
     model: String,
@@ -621,7 +652,7 @@ async fn stream_chat(
             .ok_or_else(|| "OpenCode Zen API key is required.".to_string())?;
         let model = normalize_opencode_model(model);
         let prompt = opencode_prompt(&messages);
-        return stream_opencode_response(&model, &prompt, &secret, &on_event).await;
+        return stream_opencode_response(&app, &model, &prompt, &secret, &on_event).await;
     }
 
     let endpoint = chat_endpoint(&base_url)?;

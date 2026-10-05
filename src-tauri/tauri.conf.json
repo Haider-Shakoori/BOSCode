@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:5173",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "npm run prepare:opencode && npm run build",
     "frontendDist": "../dist"
   },
   "app": {
@@ -52,7 +52,10 @@
     },
     "icon": [
       "icons/icon.ico"
-    ]
+    ],
+    "resources": {
+      "resources/opencode/": "opencode/"
+    }
   },
   "plugins": {
     "updater": {

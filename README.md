@@ -123,6 +123,7 @@ Memory is local-first. Provider API keys remain in the operating-system credenti
 - Microsoft C++ Build Tools
 - Microsoft Edge WebView2
 - Git
+- OpenCode is optional as a separate install: production BOSCode Windows installers bundle a verified OpenCode CLI runtime for Big Pickle and prefer a system installation when one is already available.
 
 ### Run the frontend
 
@@ -153,7 +154,7 @@ npm run version:check
 npm run tauri build
 ```
 
-This produces the NSIS setup executable and MSI bundle under `src-tauri/target/release/bundle/`.
+This produces the NSIS setup executable and MSI bundle under `src-tauri/target/release/bundle/`. The build downloads the pinned OpenCode Windows CLI release, verifies its SHA-256 checksum, and embeds it in the installer so Big Pickle works without a separate OpenCode installation.
 
 ## Architecture direction
 
